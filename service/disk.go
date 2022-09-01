@@ -1,0 +1,250 @@
+package service
+
+import (
+	json2 "encoding/json"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
+
+	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+type DiskService interface {
+	GetPlugInDisk() []string
+	LSBLK(isUseCache bool) []model.LSBLKModel
+	SmartCTL(path string) model.SmartctlA
+	FormatDisk(path, format string) []string
+	UmountPointAndRemoveDir(path string) []string
+	GetDiskInfo(path string) model.LSBLKModel
+	DelPartition(path, num string) string
+	AddPartition(path string) string
+	GetDiskInfoByPath(path string) *disk.UsageStat
+	MountDisk(path, volume string)
+	GetSerialAll() []model2.SerialDisk
+	SaveMountPoint(m model2.SerialDisk)
+	DeleteMountPoint(path, mountPoint string)
+	DeleteMount(id string)
+	UpdateMountPoint(m model2.SerialDisk)
+	RemoveLSBLKCache()
+	UmountUSB(path string)
+}
+type diskService struct {
+	db *gorm.DB
+}
+
+func (d *diskService) RemoveLSBLKCache() {
+	key := "system_lsblk"
+	Cache.Delete(key)
+}
+
+func (d *diskService) UmountUSB(path string) {
+	r := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/helper.sh ;UDEVILUmount " + path)
+	fmt.Println(r)
+}
+
+func (d *diskService) SmartCTL(path string) model.SmartctlA {
+	key := "system_smart_" + path
+	if result, ok := Cache.Get(key); ok {
+
+		res, ok := result.(model.SmartctlA)
+		if ok {
+			return res
+		}
+	}
+	var m model.SmartctlA
+	str := command.ExecSmartCTLByPath(path)
+	if str == nil {
+		logger.Error("failed to  exec shell ", zap.Any("err", "smartctl exec error"))
+		Cache.Add(key, m, time.Minute*10)
+		return m
+	}
+
+	err := json2.Unmarshal([]byte(str), &m)
+	if err != nil {
+		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+	}
+	if !reflect.DeepEqual(m, model.SmartctlA{}) {
+		Cache.Add(key, m, time.Hour*24)
+	}
+	return m
+}
+
+// 通过脚本获取外挂磁盘
+func (d *diskService) GetPlugInDisk() []string {
+	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/helper.sh ;GetPlugInDisk")
+}
+
+// 格式化硬盘
+func (d *diskService) FormatDisk(path, format string) []string {
+	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/helper.sh ;FormatDisk " + path + " " + format)
+	return r
+}
+
+// 移除挂载点,删除目录
+func (d *diskService) UmountPointAndRemoveDir(path string) []string {
+	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/helper.sh ;UMountPorintAndRemoveDir " + path)
+	return r
+}
+
+// 删除分区
+func (d *diskService) DelPartition(path, num string) string {
+	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/helper.sh ;DelPartition " + path + " " + num)
+	fmt.Println(r)
+	return ""
+}
+
+// part
+func (d *diskService) AddPartition(path string) string {
+	command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/helper.sh ;AddPartition " + path)
+	return ""
+}
+
+func (d *diskService) AddAllPartition(path string) {
+}
+
+// 获取硬盘详情
+func (d *diskService) GetDiskInfoByPath(path string) *disk.UsageStat {
+	diskInfo, err := disk.Usage(path + "1")
+	if err != nil {
+		fmt.Println(err)
+	}
+	diskInfo.UsedPercent, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", diskInfo.UsedPercent), 64)
+	diskInfo.InodesUsedPercent, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", diskInfo.InodesUsedPercent), 64)
+	return diskInfo
+}
+
+// get disk details
+func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
+	key := "system_lsblk"
+	var n []model.LSBLKModel
+
+	if result, ok := Cache.Get(key); ok && isUseCache {
+
+		res, ok := result.([]model.LSBLKModel)
+		if ok {
+			return res
+		}
+	}
+
+	str := command.ExecLSBLK()
+	if str == nil {
+		logger.Error("Failed to exec shell", zap.Any("err", "lsblk exec error"))
+		return nil
+	}
+	var m []model.LSBLKModel
+	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &m)
+	if err != nil {
+		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+	}
+
+	var c []model.LSBLKModel
+
+	var fsused uint64
+
+	health := true
+	for _, i := range m {
+		if i.Type != "loop" && !i.RO {
+			fsused = 0
+			for _, child := range i.Children {
+				if child.RM {
+					child.Health = strings.TrimSpace(command.ExecResultStr("source " + config.AppInfo.ShellPath + "/helper.sh ;GetDiskHealthState " + child.Path))
+					if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
+						health = false
+					}
+					f, _ := strconv.ParseUint(child.FSUsed, 10, 64)
+					fsused += f
+				} else {
+					health = false
+				}
+				c = append(c, child)
+			}
+			// i.Format = strings.TrimSpace(command.ExecResultStr("source " + config.AppInfo.ShellPath + "/helper.sh ;GetDiskType " + i.Path))
+			if health {
+				i.Health = "OK"
+			}
+			i.FSUsed = strconv.FormatUint(fsused, 10)
+			i.Children = c
+			if fsused > 0 {
+				i.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(i.Size)), 64)
+				if err != nil {
+					logger.Error("Failed to parse float", zap.Any("err", err))
+				}
+			}
+			n = append(n, i)
+			health = true
+			c = []model.LSBLKModel{}
+			fsused = 0
+		}
+	}
+	if len(n) > 0 {
+		Cache.Add(key, n, time.Second*100)
+	}
+	return n
+}
+
+func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
+	str := command.ExecLSBLKByPath(path)
+	if str == nil {
+		logger.Error("Failed to exec shell", zap.Any("err", "lsblk exec error"))
+		return model.LSBLKModel{}
+	}
+
+	var ml []model.LSBLKModel
+	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &ml)
+	if err != nil {
+		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+		return model.LSBLKModel{}
+	}
+
+	m := model.LSBLKModel{}
+	if len(ml) > 0 {
+		m = ml[0]
+	}
+	return m
+}
+
+func (d *diskService) MountDisk(path, volume string) {
+	// fmt.Println("source " + config.AppInfo.ShellPath + "/helper.sh ;do_mount " + path + " " + volume)
+	r := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/helper.sh ;do_mount " + path + " " + volume)
+	fmt.Println(r)
+}
+
+func (d *diskService) SaveMountPoint(m model2.SerialDisk) {
+	d.db.Where("uuid = ?", m.UUID).Delete(&model2.SerialDisk{})
+	d.db.Create(&m)
+}
+
+func (d *diskService) UpdateMountPoint(m model2.SerialDisk) {
+	d.db.Model(&model2.SerialDisk{}).Where("uui = ?", m.UUID).Update("mount_point", m.MountPoint)
+}
+
+func (d *diskService) DeleteMount(id string) {
+	d.db.Delete(&model2.SerialDisk{}).Where("id = ?", id)
+}
+
+func (d *diskService) DeleteMountPoint(path, mountPoint string) {
+	d.db.Where("path = ? AND mount_point = ?", path, mountPoint).Delete(&model2.SerialDisk{})
+
+	command.OnlyExec("source " + config.AppInfo.ShellPath + "/helper.sh ;do_umount " + path)
+}
+
+func (d *diskService) GetSerialAll() []model2.SerialDisk {
+	var m []model2.SerialDisk
+	d.db.Find(&m)
+	return m
+}
+
+func NewDiskService(db *gorm.DB) DiskService {
+	return &diskService{db: db}
+}
