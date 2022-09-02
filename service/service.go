@@ -8,6 +8,8 @@ import (
 
 var Cache *cache.Cache
 
+var MyService Repository
+
 type Repository interface {
 	Disk() DiskService
 	Gateway() gateway.ManagementService
