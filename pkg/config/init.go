@@ -5,6 +5,10 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-var AppInfo = &model.APPModel{}
+var (
+	AppInfo          = &model.APPModel{}
+	ServerInfo       = &model.ServerModel{}
+	SystemConfigInfo = &model.SystemConfig{}
+)
 
 var Cfg *ini.File
