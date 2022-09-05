@@ -1,14 +1,18 @@
 package model
 
+type CommonModel struct {
+	RuntimePath string
+}
+
 type APPModel struct {
-	ShellPath string
+	LogPath     string
+	LogSaveName string
+	LogFileExt  string
+	ShellPath   string
+	DBPath      string
 }
 
 // 服务配置
 type ServerModel struct {
 	USBAutoMount string
-}
-
-type SystemConfig struct {
-	ConfigPath string `json:"config_path"`
 }

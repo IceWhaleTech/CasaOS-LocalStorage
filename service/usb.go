@@ -19,7 +19,7 @@ type usbService struct{}
 func (s *usbService) UpdateUSBAutoMount(state string) {
 	config.ServerInfo.USBAutoMount = state
 	config.Cfg.Section("server").Key("USBAutoMount").SetValue(state)
-	config.Cfg.SaveTo(config.SystemConfigInfo.ConfigPath)
+	config.Cfg.SaveTo(config.ConfigFilePath)
 }
 
 func (s *usbService) ExecUSBAutoMountShell(state string) {

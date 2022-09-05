@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
@@ -17,6 +19,9 @@ import (
 )
 
 func init() {
+	configFlag := flag.String("c", "", "config address")
+	dbFlag := flag.String("db", "", "db path")
+
 	versionFlag := flag.Bool("v", false, "version")
 
 	flag.Parse()
@@ -25,6 +30,18 @@ func init() {
 		fmt.Printf("v%s\n", common.Version)
 		os.Exit(0)
 	}
+
+	config.InitSetup(*configFlag)
+
+	logger.LogInit(config.AppInfo.LogPath, config.AppInfo.LogSaveName, config.AppInfo.LogFileExt)
+
+	if len(*dbFlag) == 0 {
+		*dbFlag = config.AppInfo.DBPath
+	}
+
+	sqliteDB := sqlite.GetDB(*dbFlag)
+
+	service.MyService = service.NewService(sqliteDB, config.CommonInfo.RuntimePath)
 
 	checkSerialDiskMount()
 }
