@@ -24,9 +24,9 @@ func (s *usbService) UpdateUSBAutoMount(state string) {
 
 func (s *usbService) ExecUSBAutoMountShell(state string) {
 	if state == "False" {
-		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/helper.sh ;USB_Stop_Auto")
+		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Stop_Auto")
 	} else {
-		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/helper.sh ;USB_Start_Auto")
+		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Start_Auto")
 	}
 }
 
@@ -36,7 +36,7 @@ func (c *usbService) GetSysInfo() host.InfoStat {
 }
 
 func (c *usbService) GetDeviceTree() string {
-	return command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/helper.sh ;GetDeviceTree")
+	return command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDeviceTree")
 }
 
 func NewUSBService() USBService {

@@ -47,7 +47,7 @@ FormatDisk() {
 }
 
 #移除挂载点,删除已挂在的文件夹
-UMountPorintAndRemoveDir() {
+UMountPointAndRemoveDir() {
   DEVICE=$1
   MOUNT_POINT=$(mount | grep ${DEVICE} | awk '{ print $3 }')
   if [[ -z ${MOUNT_POINT} ]]; then

@@ -135,5 +135,5 @@ func checkSerialDiskMount() {
 		}
 	}
 	service.MyService.Disk().RemoveLSBLKCache()
-	command.OnlyExec("source " + config.AppInfo.ShellPath + "/helper.sh ;AutoRemoveUnuseDir")
+	command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AutoRemoveUnuseDir")
 }
