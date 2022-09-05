@@ -42,6 +42,7 @@ func InitSetup(config string) {
 		panic(err)
 	}
 
+	mapTo("common", CommonInfo)
 	mapTo("app", AppInfo)
 	mapTo("server", ServerInfo)
 }

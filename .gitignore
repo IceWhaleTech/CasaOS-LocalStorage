@@ -16,3 +16,4 @@
 
 .vscode/
 dist/
+__debug_bin
