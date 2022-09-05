@@ -1,0 +1,12 @@
+[Unit]
+After=casaos-user-service.service
+ConditionFileNotEmpty=/etc/casaos/local-storage.conf
+Description=CasaOS Local Storage Service
+
+[Service]
+ExecStart=/usr/bin/casaos-local-storage -c /etc/casaos/local-storage.conf
+PIDFile=/var/run/casaos/local-storage.pid
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1 @@
+../setup-local-storage.sh
