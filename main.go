@@ -3,20 +3,28 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	"github.com/robfig/cron"
+	"go.uber.org/zap"
 )
+
+const localhost = "127.0.0.1"
 
 func init() {
 	configFlag := flag.String("c", "", "config address")
@@ -43,11 +51,44 @@ func init() {
 
 	service.MyService = service.NewService(sqliteDB, config.CommonInfo.RuntimePath)
 
+	service.Cache = cache.Init()
+
 	checkSerialDiskMount()
 }
 
 func main() {
 	go route.MonitoryUSB()
+
+	crontab := cron.New()
+
+	err := crontab.AddFunc("0/5 * * * * *", func() {
+		// TODO - @tiger - call notify service with disk/storage status
+	})
+
+	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
+	if err != nil {
+		panic(err)
+	}
+
+	apiPaths := []string{"/v1/usb", "/v1/disks", "/v1/storage"}
+	for _, apiPath := range apiPaths {
+		err = service.MyService.Gateway().CreateRoute(&gateway_common.Route{
+			Path:   apiPath,
+			Target: "http://" + listener.Addr().String(),
+		})
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	r := route.InitRouter()
+
+	logger.Info("LocalStorage service is listening...", zap.Any("address", listener.Addr().String()))
+	err = http.Serve(listener, r)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func checkToken2_11() {
