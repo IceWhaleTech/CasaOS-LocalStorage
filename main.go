@@ -62,9 +62,7 @@ func main() {
 	crontab := cron.New()
 
 	err := crontab.AddFunc("0/5 * * * * *", func() {
-		route.SendDiskBySocket()
-		route.SendUSBBySocket()
-		// TODO - @tiger - call notify service with other status data
+		// TODO - @tiger - call System common method to report disk utilization.
 	})
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
