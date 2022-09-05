@@ -23,7 +23,7 @@ func GetDB(dbPath string) *gorm.DB {
 		panic(err)
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbPath+"/local_storage.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbPath+"/local-storage.db"), &gorm.Config{})
 
 	c, _ := db.DB()
 	c.SetMaxIdleConns(10)
