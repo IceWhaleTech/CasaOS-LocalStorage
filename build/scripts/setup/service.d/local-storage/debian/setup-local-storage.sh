@@ -18,9 +18,6 @@ fi
 # enable and start service
 systemctl daemon-reload
 
-echo "Enabling USB mount service..."
-systemctl enable --force --no-ask-password "casaos-usb-mount@.service"
-
 echo "Enabling service..."
 systemctl enable --force --no-ask-password "${APP_NAME}.service"
 
