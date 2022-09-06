@@ -3,14 +3,15 @@ module github.com/IceWhaleTech/CasaOS-LocalStorage
 go 1.19
 
 require (
-	github.com/IceWhaleTech/CasaOS-Gateway v0.3.7-0.20220906162414-f612e28aa31e
+	github.com/IceWhaleTech/CasaOS-Gateway v0.3.6
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.1 // indirect
-	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -45,8 +46,6 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/dig v1.14.0 // indirect
-	go.uber.org/fx v1.17.1 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
