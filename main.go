@@ -20,6 +20,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron"
 	"go.uber.org/zap"
 )
@@ -83,6 +84,14 @@ func main() {
 	}
 
 	r := route.InitRouter()
+
+	if supported, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+		logger.Error("Failed to notify systemd that local storage service is ready", zap.Any("error", err))
+	} else if supported {
+		logger.Info("Notified systemd that local storage service is ready")
+	} else {
+		logger.Info("This process is not running as a systemd service.")
+	}
 
 	logger.Info("LocalStorage service is listening...", zap.Any("address", listener.Addr().String()))
 	err = http.Serve(listener, r)
