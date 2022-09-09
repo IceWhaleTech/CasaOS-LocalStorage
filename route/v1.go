@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitRouter() *gin.Engine {
+func InitV1Router() *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.Cors())
 	r.Use(middleware.WriteLog())

@@ -16,4 +16,5 @@
 
 .vscode/
 dist/
+target/
 __debug_bin

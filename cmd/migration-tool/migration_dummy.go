@@ -1,6 +1,12 @@
 package main
 
-import interfaces "github.com/IceWhaleTech/CasaOS-Common"
+import (
+	"strings"
+
+	interfaces "github.com/IceWhaleTech/CasaOS-Common"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
+)
 
 type migrationTool1 struct{}
 
@@ -13,6 +19,7 @@ func (u *migrationTool1) PreMigrate() error {
 }
 
 func (u *migrationTool1) Migrate() error {
+	checkToken2_11()
 	return nil
 }
 
@@ -22,4 +29,11 @@ func (u *migrationTool1) PostMigrate() error {
 
 func NewMigrationToolDummy() interfaces.MigrationTool {
 	return &migrationTool1{}
+}
+
+func checkToken2_11() {
+	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && config.ServerInfo.USBAutoMount != "True" && strings.Contains(service.MyService.USB().GetDeviceTree(), "Raspberry Pi") {
+		service.MyService.USB().UpdateUSBAutoMount("False")
+		service.MyService.USB().ExecUSBAutoMountShell("False")
+	}
 }

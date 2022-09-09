@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -57,6 +58,18 @@ func init() {
 	checkSerialDiskMount()
 }
 
+type handerMultiplexer struct {
+	handlerMap map[string]http.Handler
+}
+
+func (h *handerMultiplexer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	parentPath := strings.Split(strings.TrimLeft(r.URL.Path, "/"), "/")[0]
+
+	if handler, ok := h.handlerMap[parentPath]; ok {
+		handler.ServeHTTP(w, r)
+	}
+}
+
 func main() {
 	go route.MonitoryUSB()
 
@@ -65,6 +78,9 @@ func main() {
 	err := crontab.AddFunc("0/5 * * * * *", func() {
 		// TODO - @tiger - call System common method to report disk utilization.
 	})
+	if err != nil {
+		logger.Error("crontab add func error", zap.Error(err))
+	}
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
 	if err != nil {
@@ -83,7 +99,15 @@ func main() {
 		}
 	}
 
-	r := route.InitRouter()
+	v1Router := route.InitV1Router()
+	v2Router := route.InitV2Router()
+
+	mux := &handerMultiplexer{
+		handlerMap: map[string]http.Handler{
+			"v1": v1Router,
+			"v2": v2Router,
+		},
+	}
 
 	if supported, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
 		logger.Error("Failed to notify systemd that local storage service is ready", zap.Any("error", err))
@@ -94,16 +118,15 @@ func main() {
 	}
 
 	logger.Info("LocalStorage service is listening...", zap.Any("address", listener.Addr().String()))
-	err = http.Serve(listener, r)
+
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	err = server.Serve(listener)
 	if err != nil {
 		panic(err)
-	}
-}
-
-func checkToken2_11() {
-	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && config.ServerInfo.USBAutoMount != "True" && strings.Contains(service.MyService.USB().GetDeviceTree(), "Raspberry Pi") {
-		service.MyService.USB().UpdateUSBAutoMount("False")
-		service.MyService.USB().ExecUSBAutoMountShell("False")
 	}
 }
 
