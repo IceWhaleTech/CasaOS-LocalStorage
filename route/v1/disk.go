@@ -512,12 +512,13 @@ func PostDiskFormat(c *gin.Context) {
 	}
 	diskMap[path] = "busying"
 	service.MyService.Disk().UmountPointAndRemoveDir(path)
-	format := service.MyService.Disk().FormatDisk(path, t)
-	if len(format) == 0 {
+
+	_, err := service.MyService.Disk().FormatDisk(path, t)
+	if err != nil {
 		delete(diskMap, path)
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
-		return
 	}
+
 	service.MyService.Disk().MountDisk(path, volume)
 	service.MyService.Disk().RemoveLSBLKCache()
 	delete(diskMap, path)

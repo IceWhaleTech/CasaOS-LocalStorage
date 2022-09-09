@@ -1,12 +1,11 @@
-/*
- * @Author: LinkLeong link@icewhale.com
- * @Date: 2022-07-13 10:43:45
- * @LastEditors: LinkLeong
- * @LastEditTime: 2022-08-03 14:45:35
- * @FilePath: /CasaOS/model/disk.go
- * @Description:
- * @Website: https://www.casaos.io
- * Copyright (c) 2022 by icewhale, All Rights Reserved.
+/*@Author: LinkLeong link@icewhale.com
+ *@Date: 2022-07-13 10:43:45
+ *@LastEditors: LinkLeong
+ *@LastEditTime: 2022-08-03 14:45:35
+ *@FilePath: /CasaOS/model/disk.go
+ *@Description:
+ *@Website: https://www.casaos.io
+ *Copyright (c) 2022 by icewhale, All Rights Reserved.
  */
 package model
 

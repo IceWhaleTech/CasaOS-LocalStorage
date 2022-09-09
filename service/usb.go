@@ -11,7 +11,7 @@ type USBService interface {
 	ExecUSBAutoMountShell(state string)
 
 	GetSysInfo() host.InfoStat
-	GetDeviceTree() string
+	GetDeviceTree() (string, error)
 }
 
 type usbService struct{}
@@ -35,7 +35,7 @@ func (c *usbService) GetSysInfo() host.InfoStat {
 	return *info
 }
 
-func (c *usbService) GetDeviceTree() string {
+func (c *usbService) GetDeviceTree() (string, error) {
 	return command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDeviceTree")
 }
 

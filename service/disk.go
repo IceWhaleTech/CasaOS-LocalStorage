@@ -21,23 +21,23 @@ import (
 )
 
 type DiskService interface {
-	GetPlugInDisk() []string
-	LSBLK(isUseCache bool) []model.LSBLKModel
-	SmartCTL(path string) model.SmartctlA
-	FormatDisk(path, format string) []string
-	UmountPointAndRemoveDir(path string) []string
-	GetDiskInfo(path string) model.LSBLKModel
-	DelPartition(path, num string) string
 	AddPartition(path string) string
-	GetDiskInfoByPath(path string) *disk.UsageStat
-	MountDisk(path, volume string)
-	GetSerialAll() []model2.SerialDisk
-	SaveMountPoint(m model2.SerialDisk)
-	DeleteMountPoint(path, mountPoint string)
 	DeleteMount(id string)
-	UpdateMountPoint(m model2.SerialDisk)
+	DeleteMountPoint(path, mountPoint string)
+	DelPartition(path, num string) ([]string, error)
+	FormatDisk(path, format string) ([]string, error)
+	GetDiskInfo(path string) model.LSBLKModel
+	GetDiskInfoByPath(path string) *disk.UsageStat
+	GetPlugInDisk() ([]string, error)
+	GetSerialAll() []model2.SerialDisk
+	LSBLK(isUseCache bool) []model.LSBLKModel
+	MountDisk(path, volume string) error
 	RemoveLSBLKCache()
-	UmountUSB(path string)
+	SaveMountPoint(m model2.SerialDisk)
+	SmartCTL(path string) model.SmartctlA
+	UmountPointAndRemoveDir(path string) ([]string, error)
+	UmountUSB(path string) error
+	UpdateMountPoint(m model2.SerialDisk)
 }
 type diskService struct {
 	db *gorm.DB
@@ -48,9 +48,13 @@ func (d *diskService) RemoveLSBLKCache() {
 	Cache.Delete(key)
 }
 
-func (d *diskService) UmountUSB(path string) {
-	r := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
-	fmt.Println(r)
+func (d *diskService) UmountUSB(path string) error {
+	_, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *diskService) SmartCTL(path string) model.SmartctlA {
@@ -81,27 +85,23 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 }
 
 // 通过脚本获取外挂磁盘
-func (d *diskService) GetPlugInDisk() []string {
+func (d *diskService) GetPlugInDisk() ([]string, error) {
 	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetPlugInDisk")
 }
 
 // 格式化硬盘
-func (d *diskService) FormatDisk(path, format string) []string {
-	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;FormatDisk " + path + " " + format)
-	return r
+func (d *diskService) FormatDisk(path, format string) ([]string, error) {
+	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;FormatDisk " + path + " " + format)
 }
 
 // 移除挂载点,删除目录
-func (d *diskService) UmountPointAndRemoveDir(path string) []string {
-	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
-	return r
+func (d *diskService) UmountPointAndRemoveDir(path string) ([]string, error) {
+	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
 }
 
 // 删除分区
-func (d *diskService) DelPartition(path, num string) string {
-	r := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;DelPartition " + path + " " + num)
-	fmt.Println(r)
-	return ""
+func (d *diskService) DelPartition(path, num string) ([]string, error) {
+	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;DelPartition " + path + " " + num)
 }
 
 // part
@@ -158,7 +158,13 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			fsused = 0
 			for _, child := range i.Children {
 				if child.RM {
-					child.Health = strings.TrimSpace(command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path))
+					output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
+					if err != nil {
+						logger.Error("Failed to exec shell", zap.Any("err", err))
+						return nil
+					}
+
+					child.Health = strings.TrimSpace(output)
 					if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
 						health = false
 					}
@@ -214,10 +220,15 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 	return m
 }
 
-func (d *diskService) MountDisk(path, volume string) {
+func (d *diskService) MountDisk(path, volume string) error {
 	// fmt.Println("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
-	r := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
+	r, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
+	if err != nil {
+		return err
+	}
+
 	fmt.Println(r)
+	return nil
 }
 
 func (d *diskService) SaveMountPoint(m model2.SerialDisk) {

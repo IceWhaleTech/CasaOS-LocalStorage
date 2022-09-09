@@ -9,68 +9,70 @@ import (
 	"time"
 )
 
-func OnlyExec(cmdStr string) {
+func OnlyExec(cmdStr string) error {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return
+		return err
 	}
 	defer stdout.Close()
 	if err := cmd.Start(); err != nil {
-		return
+		return err
 	}
-	cmd.Wait()
-	return
+	return cmd.Wait()
 }
 
-func ExecResultStrArray(cmdStr string) []string {
+func ExecResultStrArray(cmdStr string) ([]string, error) {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	defer stdout.Close()
 	if err = cmd.Start(); err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	// str, err := ioutil.ReadAll(stdout)
-	networklist := []string{}
+	output := []string{}
 	outputBuf := bufio.NewReader(stdout)
 	for {
-		output, _, err := outputBuf.ReadLine()
+		line, _, err := outputBuf.ReadLine()
 		if err != nil {
 			if err.Error() != "EOF" {
 				fmt.Printf("Error :%s\n", err)
 			}
 			break
 		}
-		networklist = append(networklist, string(output))
+		output = append(output, string(line))
 	}
-	cmd.Wait()
-	return networklist
+	if err := cmd.Wait(); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
-func ExecResultStr(cmdStr string) string {
+func ExecResultStr(cmdStr string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
-		return ""
+		return "", err
 	}
+
 	defer stdout.Close()
 	if err := cmd.Start(); err != nil {
-		fmt.Println(err)
-		return ""
+		return "", err
 	}
-	str, err := io.ReadAll(stdout)
-	cmd.Wait()
+
+	buf, err := io.ReadAll(stdout)
 	if err != nil {
-		fmt.Println(err)
-		return ""
+		return "", err
 	}
-	return string(str)
+
+	if err := cmd.Wait(); err != nil {
+		return string(buf), err
+	}
+
+	return string(buf), nil
 }
 
 // exec smart
@@ -86,8 +88,8 @@ func ExecSmartCTLByPath(path string) []byte {
 	return output
 }
 
-func ExecEnabledSMART(path string) {
-	exec.Command("smartctl", "-s on", path).Output()
+func ExecEnabledSMART(path string) ([]byte, error) {
+	return exec.Command("smartctl", "-s on", path).Output()
 }
 
 // 执行 lsblk 命令
