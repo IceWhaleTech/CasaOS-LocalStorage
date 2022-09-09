@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"net"
@@ -27,6 +28,12 @@ import (
 )
 
 const localhost = "127.0.0.1"
+
+//go:embed api/index.html
+var _docHTML string
+
+//go:embed api/storage/openapi.yaml
+var _docYAML string
 
 func init() {
 	configFlag := flag.String("c", "", "config address")
@@ -87,7 +94,12 @@ func main() {
 		panic(err)
 	}
 
-	apiPaths := []string{"/v1/usb", "/v1/disks", "/v1/storage"}
+	apiPaths := []string{
+		"/v1/usb",
+		"/v1/disks",
+		"/v1/storage",
+		"/doc/v1/storage",
+	}
 	for _, apiPath := range apiPaths {
 		err = service.MyService.Gateway().CreateRoute(&gateway_common.Route{
 			Path:   apiPath,
@@ -101,11 +113,13 @@ func main() {
 
 	v1Router := route.InitV1Router()
 	v2Router := route.InitV2Router()
+	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
 
 	mux := &handerMultiplexer{
 		handlerMap: map[string]http.Handler{
-			"v1": v1Router,
-			"v2": v2Router,
+			"v1":  v1Router,
+			"v2":  v2Router,
+			"doc": v2DocRouter,
 		},
 	}
 

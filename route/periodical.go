@@ -54,7 +54,7 @@ func SendDiskBySocket() {
 			}
 		}
 		if findSystem == 1 {
-			findSystem += 1
+			findSystem++
 			continue
 		}
 		if list[i].Tran == "sata" || list[i].Tran == "nvme" || list[i].Tran == "spi" || list[i].Tran == "sas" || strings.Contains(list[i].SubSystems, "virtio") || (list[i].Tran == "ata" && list[i].Type == "disk") {

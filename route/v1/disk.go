@@ -134,7 +134,7 @@ func GetDiskList(c *gin.Context) {
 			}
 		}
 		if findSystem == 1 {
-			findSystem += 1
+			findSystem++
 			continue
 		}
 
