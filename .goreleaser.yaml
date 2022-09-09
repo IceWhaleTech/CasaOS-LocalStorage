@@ -3,7 +3,7 @@
 project_name: casaos-local-storage
 before:
   hooks:
-    - bash openapi-generator-via-docker.sh
+    - bash api/openapi-generator-via-docker.sh
     - go mod tidy
 builds:
   - id: casaos-local-storage-amd64
