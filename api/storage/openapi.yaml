@@ -5,9 +5,9 @@ info:
 servers:
   - url: http://localhost/v2
 paths:
-  /storage:
+  /mount:
     get:
-      summary: Get all storage devices
+      summary: Get all mounted volumes
       responses:
         '200':
           description: OK
@@ -16,44 +16,19 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/StorageDevice'
-    post:
-      summary: Create a new storage device
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StorageDevice'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorageDevice'
+                  $ref: '#/components/schemas/Mount'
 components:
   schemas:
-    StorageDevice:
+    Mount:
       type: object
       properties:
-        name:
-          type: string
-        type:
-          type: string
-          enum:
-            - disk
-            - partition
-            - filesystem
-        size:
+        Id:
           type: integer
-          format: int64
-        mountpoint:
+        Mountpoint:
           type: string
-        uuid:
+        Type:
           type: string
-        label:
+        Source:
           type: string
-        children:
-          type: array
-          items:
-            $ref: '#/components/schemas/StorageDevice'
+        Options:
+          type: string
