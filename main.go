@@ -88,8 +88,8 @@ func main() {
 		"/v1/usb",
 		"/v1/disks",
 		"/v1/storage",
-		"/v2/local_storage",
-		"/doc/v2/local_storage",
+		route.V2APIPath,
+		route.V2DocPath,
 	}
 	for _, apiPath := range apiPaths {
 		err = service.MyService.Gateway().CreateRoute(&gateway_common.Route{
