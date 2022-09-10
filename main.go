@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
@@ -29,11 +29,13 @@ import (
 
 const localhost = "127.0.0.1"
 
-//go:embed api/index.html
-var _docHTML string
+var (
+	//go:embed api/index.html
+	_docHTML string
 
-//go:embed api/storage/openapi.yaml
-var _docYAML string
+	//go:embed api/local_storage/openapi.yaml
+	_docYAML string
+)
 
 func init() {
 	configFlag := flag.String("c", "", "config address")
@@ -65,18 +67,6 @@ func init() {
 	checkSerialDiskMount()
 }
 
-type handerMultiplexer struct {
-	handlerMap map[string]http.Handler
-}
-
-func (h *handerMultiplexer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	parentPath := strings.Split(strings.TrimLeft(r.URL.Path, "/"), "/")[0]
-
-	if handler, ok := h.handlerMap[parentPath]; ok {
-		handler.ServeHTTP(w, r)
-	}
-}
-
 func main() {
 	go route.MonitoryUSB()
 
@@ -98,7 +88,8 @@ func main() {
 		"/v1/usb",
 		"/v1/disks",
 		"/v1/storage",
-		"/doc/v1/storage",
+		"/v2/local_storage",
+		"/doc/v2/local_storage",
 	}
 	for _, apiPath := range apiPaths {
 		err = service.MyService.Gateway().CreateRoute(&gateway_common.Route{
@@ -115,8 +106,8 @@ func main() {
 	v2Router := route.InitV2Router()
 	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
 
-	mux := &handerMultiplexer{
-		handlerMap: map[string]http.Handler{
+	mux := &util_http.HandlerMultiplexer{
+		HandlerMap: map[string]http.Handler{
 			"v1":  v1Router,
 			"v2":  v2Router,
 			"doc": v2DocRouter,

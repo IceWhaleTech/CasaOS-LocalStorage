@@ -3,7 +3,8 @@
 project_name: casaos-local-storage
 before:
   hooks:
-    - bash api/openapi-generator-via-docker.sh
+    - mkdir -p codegen
+    - go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go
     - go mod tidy
 builds:
   - id: casaos-local-storage-amd64

@@ -3,7 +3,7 @@ info:
   title: CasaOS Local Storage API
   version: 0.3.0
 servers:
-  - url: http://localhost/v2
+  - url: /v2/local_storage
 paths:
   /mount:
     get:
