@@ -7,7 +7,19 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *LocalStorage) GetMount(ctx echo.Context) error {
-	m := codegen.Mount{}
-	return ctx.JSON(http.StatusOK, m)
+func (s *LocalStorage) GetMounts(ctx echo.Context) error {
+	mounts, err := s.service.GetMounts()
+	if err != nil {
+		message := err.Error()
+		response := codegen.BaseResponse{
+			Message: &message,
+		}
+		return ctx.JSON(http.StatusInternalServerError, response)
+	}
+
+	response := codegen.GetMountsResponseOK{
+		Data: &mounts,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }

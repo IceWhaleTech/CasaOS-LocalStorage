@@ -1,24 +1,71 @@
 openapi: 3.0.3
+
 info:
   title: CasaOS Local Storage API
-  version: 0.3.0
+  version: v2
+  description: |-
+    This API is used to manage local storage including disks, partitions and mounting points.
+
 servers:
   - url: /v2/local_storage
+
+tags:
+  - name: Mount methods
+
+  - name: Mount
+    description: |-
+      <SchemaDefinition schemaRef="#/components/schemas/Mount" />
+
+x-tagGroups:
+  - name: Mount
+    tags:
+      - Mount methods
+
+  - name: Schemas
+    tags:
+      - Mount
+
 paths:
   /mount:
     get:
       summary: Get all mounted volumes
+      description: |-
+        (TODO)
+      operationId: getMounts
+      tags:
+        - Mount methods
       responses:
         '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Mount'
+          $ref: '#/components/responses/GetMountsResponseOK'
+
 components:
+
+  responses:
+
+    GetMountsResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Mount'
+
   schemas:
+
+    BaseResponse:
+      properties:
+        message:
+          readOnly: true
+          description: message returned by server side if there is any
+          type: string
+          example: ""
+
     Mount:
       type: object
       properties:
@@ -26,9 +73,14 @@ components:
           type: integer
         Mountpoint:
           type: string
+          example: "/"
         Type:
           type: string
+          example: "ext4"
         Source:
           type: string
+          example: "/dev/sda1"
         Options:
           type: string
+          example: "rw,relatime"
+
