@@ -1,10 +1,12 @@
 package v2
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
+	"github.com/moby/sys/mount"
 	"github.com/moby/sys/mountinfo"
 )
 
@@ -43,4 +45,25 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 	}
 
 	return results, nil
+}
+
+func (s *LocalStorageService) Mount(source, mountpoint, fstype, options string) (*codegen.Mount, error) {
+	if err := mount.Mount(source, mountpoint, fstype, options); err != nil {
+		return nil, err
+	}
+
+	results, err := s.GetMounts(codegen.GetMountsParams{})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return nil, nil
+	}
+
+	if len(results) > 1 {
+		fmt.Printf("Mount source `%s` of type `%s` to mount point `%s` with options `%s`, but got %d results", source, fstype, mountpoint, options, len(results))
+	}
+
+	return &results[0], nil
 }

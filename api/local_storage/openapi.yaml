@@ -67,6 +67,22 @@ paths:
         '200':
           $ref: '#/components/responses/GetMountsResponseOK'
 
+    post:
+      summary: Mount a volume
+      description: |-
+        (TODO)
+      operationId: mount
+      tags:
+        - Mount methods
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MountRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MountResponseOK'
+
 components:
 
   responses:
@@ -85,6 +101,18 @@ components:
                     items:
                       $ref: '#/components/schemas/Mount'
 
+    MountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mount'
+
   schemas:
 
     BaseResponse:
@@ -100,10 +128,11 @@ components:
       properties:
         Id:
           type: integer
+          readOnly: true
         Mountpoint:
           type: string
           example: "/"
-        Type:
+        FSType:
           type: string
           example: "ext4"
         Source:
@@ -113,3 +142,13 @@ components:
           type: string
           example: "rw,relatime"
 
+    MountRequest:
+      type: object
+      required:
+        - Mount
+      properties:
+        Mount:
+          $ref: '#/components/schemas/Mount'
+        Persist:
+          type: boolean
+          default: true
