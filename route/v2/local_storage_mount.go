@@ -7,8 +7,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *LocalStorage) GetMounts(ctx echo.Context) error {
-	mounts, err := s.service.GetMounts()
+func (s *LocalStorage) GetMounts(ctx echo.Context, params codegen.GetMountsParams) error {
+	mounts, err := s.service.GetMounts(params)
 	if err != nil {
 		message := err.Error()
 		response := codegen.BaseResponse{
@@ -17,9 +17,7 @@ func (s *LocalStorage) GetMounts(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, response)
 	}
 
-	response := codegen.GetMountsResponseOK{
+	return ctx.JSON(http.StatusOK, codegen.GetMountsResponseOK{
 		Data: &mounts,
-	}
-
-	return ctx.JSON(http.StatusOK, response)
+	})
 }

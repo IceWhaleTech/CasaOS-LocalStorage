@@ -34,6 +34,35 @@ paths:
       operationId: getMounts
       tags:
         - Mount methods
+      parameters:
+        - name: id
+          in: query
+          description: |-
+            Filter the results by id
+          schema:
+            type: string
+            example: "0"
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/"
+        - name: type
+          in: query
+          description: |-
+            Filter the results by type
+          schema:
+            type: string
+            example: "ext4"
+        - name: source
+          in: query
+          description: |-
+            Filter the results by source
+          schema:
+            type: string
+            example: "/dev/sda1"
       responses:
         '200':
           $ref: '#/components/responses/GetMountsResponseOK'

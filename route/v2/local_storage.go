@@ -2,6 +2,8 @@ package v2
 
 import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/wrapper"
+
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 )
 
@@ -10,7 +12,9 @@ type LocalStorage struct {
 }
 
 func NewLocalStorage() codegen.ServerInterface {
+	mountinfo := wrapper.NewMountInfo()
+
 	return &LocalStorage{
-		service: v2.NewLocalStorageService(),
+		service: v2.NewLocalStorageService(mountinfo),
 	}
 }
