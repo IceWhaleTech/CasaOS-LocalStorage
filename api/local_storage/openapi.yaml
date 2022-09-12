@@ -82,6 +82,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/MountResponseOK'
+        '400':
+          $ref: '#/components/responses/MountResponseBadRequest'
 
 components:
 
@@ -112,6 +114,16 @@ components:
                 properties:
                   data:
                     $ref: '#/components/schemas/Mount'
+    
+    MountResponseBadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            message: "Bad Request"
 
   schemas:
 
@@ -131,16 +143,16 @@ components:
           readOnly: true
         Mountpoint:
           type: string
-          example: "/"
+          example: "/media"
         FSType:
           type: string
-          example: "ext4"
+          example: "mergerfs"
         Source:
           type: string
-          example: "/dev/sda1"
+          example: "/mnt/a:/mnt/b"
         Options:
           type: string
-          example: "rw,relatime"
+          example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
 
     MountRequest:
       type: object

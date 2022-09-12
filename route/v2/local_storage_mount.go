@@ -41,6 +41,15 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, response)
 	}
 
+	if mountRequest.Persist != nil && *mountRequest.Persist {
+		// TODO - persist mount to fstab
+
+		message := "Persisting mounts to fstab is not yet implemented"
+		return ctx.JSON(http.StatusNotImplemented, codegen.BaseResponse{
+			Message: &message,
+		})
+	}
+
 	return ctx.JSON(http.StatusOK, codegen.MountResponseOK{
 		Data: mount,
 	})
