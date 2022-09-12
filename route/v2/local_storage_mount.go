@@ -1,11 +1,19 @@
 package v2
 
 import (
+	"errors"
 	"net/http"
+	"syscall"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/labstack/echo/v4"
 )
+
+type MountError interface {
+	Error() string
+	Cause() error
+	Unwrap() error
+}
 
 func (s *LocalStorage) GetMounts(ctx echo.Context, params codegen.GetMountsParams) error {
 	mounts, err := s.service.GetMounts(params)
@@ -34,6 +42,17 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 
 	mount, err := s.service.Mount(*mountRequest.Mount.Source, *mountRequest.Mount.Mountpoint, *mountRequest.Mount.FSType, *mountRequest.Mount.Options)
 	if err != nil {
+
+		var mountError MountError
+		var internalError syscall.Errno
+		if errors.As(err, &mountError) && errors.As(mountError.Unwrap(), &internalError) && internalError == syscall.EPERM {
+			message := err.Error()
+			response := codegen.BaseResponse{
+				Message: &message,
+			}
+			return ctx.JSON(http.StatusForbidden, response)
+		}
+
 		message := err.Error()
 		response := codegen.BaseResponse{
 			Message: &message,
