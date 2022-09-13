@@ -2,11 +2,11 @@ package v2
 
 import (
 	"fmt"
+	"os/exec"
 	"strconv"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
-	"github.com/moby/sys/mount"
 	"github.com/moby/sys/mountinfo"
 )
 
@@ -48,11 +48,17 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 }
 
 func (s *LocalStorageService) Mount(source, mountpoint, fstype, options string) (*codegen.Mount, error) {
-	if err := mount.Mount(source, mountpoint, fstype, options); err != nil {
+	// TODO - check if mountpoint is already mounted
+
+	cmd := exec.Command("mount", "-t", fstype, source, mountpoint, "-o", options)
+	if _, err := cmd.Output(); err != nil {
 		return nil, err
 	}
 
-	results, err := s.GetMounts(codegen.GetMountsParams{})
+	results, err := s.GetMounts(codegen.GetMountsParams{
+		MountPoint: &mountpoint,
+		Type:       &fstype,
+	})
 	if err != nil {
 		return nil, err
 	}

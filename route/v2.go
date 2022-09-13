@@ -43,6 +43,8 @@ func InitV2Router() http.Handler {
 
 	e.Use(middleware.OapiRequestValidator(_swagger))
 
+	// TODO - add JWT2 here
+
 	codegen.RegisterHandlersWithBaseURL(e, localStorage, V2APIPath)
 
 	return e

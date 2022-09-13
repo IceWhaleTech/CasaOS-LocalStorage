@@ -31,8 +31,8 @@ func (s *LocalStorage) GetMounts(ctx echo.Context, params codegen.GetMountsParam
 }
 
 func (s *LocalStorage) Mount(ctx echo.Context) error {
-	var mountRequest codegen.MountRequest
-	if err := ctx.Bind(&mountRequest); err != nil {
+	var request codegen.Mount
+	if err := ctx.Bind(&request); err != nil {
 		message := err.Error()
 		response := codegen.BaseResponse{
 			Message: &message,
@@ -40,7 +40,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusBadRequest, response)
 	}
 
-	mount, err := s.service.Mount(*mountRequest.Mount.Source, *mountRequest.Mount.Mountpoint, *mountRequest.Mount.FSType, *mountRequest.Mount.Options)
+	mount, err := s.service.Mount(*request.Source, *request.Mountpoint, *request.FSType, *request.Options)
 	if err != nil {
 
 		var mountError MountError
@@ -60,7 +60,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, response)
 	}
 
-	if mountRequest.Persist != nil && *mountRequest.Persist {
+	if request.Persist != nil && *request.Persist {
 		// TODO - persist mount to fstab
 
 		message := "Persisting mounts to fstab is not yet implemented"

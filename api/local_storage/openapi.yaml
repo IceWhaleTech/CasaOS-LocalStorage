@@ -4,7 +4,17 @@ info:
   title: CasaOS Local Storage API
   version: v2
   description: |-
-    This API is used to manage local storage including disks, partitions and mounting points.
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_dark_night_800px.png">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_twilight_blue_800px.png">
+        <img alt="CasaOS" src="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_twilight_blue_800px.png">
+    </picture>
+
+    CasaOS Local Storage service manages local storage including disks, partitions and mounting points.
+    
+    This API allows interacting with the service to conduct such management.
+
+    For issues and discussions, please visit the [GitHub repository](https://github.com/IceWhaleTech/CasaOS) or join [our Discord](https://discord.gg/knqAbbBbeX).
 
 servers:
   - url: /v2/local_storage
@@ -30,7 +40,7 @@ paths:
     get:
       summary: Get all mounted volumes
       description: |-
-        (TODO)
+        Get all volumes currently mounted on the system. Volumes can be filtered by corresponding query parameters.
       operationId: getMounts
       tags:
         - Mount methods
@@ -78,12 +88,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MountRequest'
+              $ref: '#/components/schemas/Mount'
       responses:
         '200':
           $ref: '#/components/responses/MountResponseOK'
         '400':
           $ref: '#/components/responses/MountResponseBadRequest'
+
 
 components:
 
@@ -137,6 +148,7 @@ components:
 
     Mount:
       type: object
+      minProperties: 1
       properties:
         Id:
           type: integer
@@ -153,14 +165,16 @@ components:
         Options:
           type: string
           example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
-
-    MountRequest:
-      type: object
-      required:
-        - Mount
-      properties:
-        Mount:
-          $ref: '#/components/schemas/Mount'
         Persist:
           type: boolean
-          default: true
+          description: |-
+            `true` if the mount should be persisted in `/etc/fstab`, `false` otherwise
+          default: false
+        Extended:
+          type: object
+          description: |-
+            Extended properties of the mount
+          additionalProperties:
+            type: string
+          example:
+            "mergerfs.srcmounts": "/mnt/a:/mnt/b"
