@@ -155,10 +155,10 @@ components:
           readOnly: true
         Mountpoint:
           type: string
-          example: "/media"
+          example: "/DATA"
         FSType:
           type: string
-          example: "mergerfs"
+          example: "fuse.mergerfs"
         Source:
           type: string
           example: "/mnt/a:/mnt/b"

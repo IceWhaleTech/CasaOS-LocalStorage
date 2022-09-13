@@ -1,14 +1,19 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
 	"github.com/moby/sys/mountinfo"
+	"go.uber.org/zap"
 )
+
+var ErrAlreadyMounted = errors.New("volume is already mounted")
 
 func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codegen.Mount, error) {
 	mounts, err := s._mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
@@ -35,6 +40,7 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 		return false, false
 	})
 	if err != nil {
+		logger.Error("Error when trying to get mounted volumes: %v", zap.Any("error", err))
 		return nil, err
 	}
 
@@ -48,14 +54,25 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 }
 
 func (s *LocalStorageService) Mount(source, mountpoint, fstype, options string) (*codegen.Mount, error) {
-	// TODO - check if mountpoint is already mounted
+	// check if mountpoint is already mounted
+	results, err := s.GetMounts(codegen.GetMountsParams{
+		MountPoint: &mountpoint,
+		Type:       &fstype,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results) > 0 {
+		return &results[0], ErrAlreadyMounted
+	}
 
 	cmd := exec.Command("mount", "-t", fstype, source, mountpoint, "-o", options)
 	if _, err := cmd.Output(); err != nil {
 		return nil, err
 	}
 
-	results, err := s.GetMounts(codegen.GetMountsParams{
+	results, err = s.GetMounts(codegen.GetMountsParams{
 		MountPoint: &mountpoint,
 		Type:       &fstype,
 	})
