@@ -6,6 +6,8 @@ import (
 	"syscall"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -34,42 +36,33 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 	var request codegen.Mount
 	if err := ctx.Bind(&request); err != nil {
 		message := err.Error()
-		response := codegen.BaseResponse{
-			Message: &message,
-		}
-		return ctx.JSON(http.StatusBadRequest, response)
+		return ctx.JSON(http.StatusBadRequest, codegen.MountResponseBadRequest{Message: &message})
 	}
 
-	mount, err := s.service.Mount(*request.Source, *request.Mountpoint, *request.FSType, *request.Options)
+	mount, err := s.service.Mount(request)
 	if err != nil {
-
 		var mountError MountError
 		var internalError syscall.Errno
-		if errors.As(err, &mountError) && errors.As(mountError.Unwrap(), &internalError) && internalError == syscall.EPERM {
-			message := err.Error()
-			response := codegen.BaseResponse{
-				Message: &message,
-			}
-			return ctx.JSON(http.StatusForbidden, response)
-		}
 
 		message := err.Error()
-		response := codegen.BaseResponse{
-			Message: &message,
+
+		if errors.As(err, &mountError) && errors.As(mountError.Unwrap(), &internalError) && internalError == syscall.EPERM {
+			return ctx.JSON(http.StatusForbidden, codegen.MountResponseForbidden{Message: &message})
 		}
-		return ctx.JSON(http.StatusInternalServerError, response)
+
+		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountpointIsNotEmpty) {
+			return ctx.JSON(http.StatusConflict, codegen.MountResponseConflict{Message: &message})
+		}
+
+		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
 	if request.Persist != nil && *request.Persist {
 		// TODO - persist mount to fstab
 
 		message := "Persisting mounts to fstab is not yet implemented"
-		return ctx.JSON(http.StatusNotImplemented, codegen.BaseResponse{
-			Message: &message,
-		})
+		return ctx.JSON(http.StatusNotImplemented, codegen.BaseResponse{Message: &message})
 	}
 
-	return ctx.JSON(http.StatusOK, codegen.MountResponseOK{
-		Data: mount,
-	})
+	return ctx.JSON(http.StatusOK, codegen.MountResponseOK{Data: mount})
 }

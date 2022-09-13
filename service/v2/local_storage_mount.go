@@ -2,10 +2,10 @@ package v2
 
 import (
 	"errors"
-	"fmt"
 	"os/exec"
 	"strconv"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
@@ -13,7 +13,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var ErrAlreadyMounted = errors.New("volume is already mounted")
+var (
+	ErrAlreadyMounted       = errors.New("volume is already mounted")
+	ErrMountpointIsNotEmpty = errors.New("mountpoint is not empty")
+)
 
 func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codegen.Mount, error) {
 	mounts, err := s._mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
@@ -40,7 +43,7 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 		return false, false
 	})
 	if err != nil {
-		logger.Error("Error when trying to get mounted volumes: %v", zap.Any("error", err))
+		logger.Error("Error when trying to get mounted volume(s)", zap.Any("error", err))
 		return nil, err
 	}
 
@@ -53,28 +56,41 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 	return results, nil
 }
 
-func (s *LocalStorageService) Mount(source, mountpoint, fstype, options string) (*codegen.Mount, error) {
+func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	// check if mountpoint is already mounted
 	results, err := s.GetMounts(codegen.GetMountsParams{
-		MountPoint: &mountpoint,
-		Type:       &fstype,
+		MountPoint: m.Mountpoint,
+		Type:       m.FSType,
 	})
 	if err != nil {
+		logger.Error("Error when trying to get mounted volume", zap.Any("error", err), zap.Any("mount", m))
 		return nil, err
 	}
 
 	if len(results) > 0 {
+		logger.Info("Volume is already mounted", zap.Any("mount", results[0]))
 		return &results[0], ErrAlreadyMounted
 	}
 
-	cmd := exec.Command("mount", "-t", fstype, source, mountpoint, "-o", options)
-	if _, err := cmd.Output(); err != nil {
+	// check if mountpoint is empty
+	if empty, err := file.IsDirEmpty(*m.Mountpoint); err != nil {
+		logger.Error("Error when trying to check if mountpoint is empty", zap.Any("error", err), zap.Any("mount", m))
+		return nil, err
+	} else if !empty {
+		logger.Error("Mountpoint is not empty", zap.Any("mount", m))
+		return nil, ErrMountpointIsNotEmpty
+	}
+
+	cmd := exec.Command("mount", "-t", *m.FSType, *m.Source, *m.Mountpoint, "-o", *m.Options) // #nosec
+	logger.Info("Executing command", zap.Any("command", cmd.String()))
+	if buf, err := cmd.CombinedOutput(); err != nil {
+		logger.Error(string(buf), zap.Any("error", err), zap.Any("mount", m))
 		return nil, err
 	}
 
 	results, err = s.GetMounts(codegen.GetMountsParams{
-		MountPoint: &mountpoint,
-		Type:       &fstype,
+		MountPoint: m.Mountpoint,
+		Type:       m.FSType,
 	})
 	if err != nil {
 		return nil, err
@@ -85,8 +101,11 @@ func (s *LocalStorageService) Mount(source, mountpoint, fstype, options string) 
 	}
 
 	if len(results) > 1 {
-		fmt.Printf("Mount source `%s` of type `%s` to mount point `%s` with options `%s`, but got %d results", source, fstype, mountpoint, options, len(results))
 	}
 
 	return &results[0], nil
+}
+
+func (s *LocalStorageService) Persist() error {
+	return nil
 }

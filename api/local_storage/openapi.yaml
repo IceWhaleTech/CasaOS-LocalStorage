@@ -94,6 +94,10 @@ paths:
           $ref: '#/components/responses/MountResponseOK'
         '400':
           $ref: '#/components/responses/MountResponseBadRequest'
+        '403':
+          $ref: '#/components/responses/MountResponseForbidden'
+        '409':
+          $ref: '#/components/responses/MountResponseConflict'
 
 
 components:
@@ -135,6 +139,26 @@ components:
               - $ref: '#/components/schemas/BaseResponse'
           example:
             message: "Bad Request"
+
+    MountResponseForbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            message: "Forbidden"
+
+    MountResponseConflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            message: "Conflict"
 
   schemas:
 
