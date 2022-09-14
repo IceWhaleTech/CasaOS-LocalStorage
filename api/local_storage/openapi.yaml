@@ -172,7 +172,6 @@ paths:
         '409':
           $ref: '#/components/responses/ResponseConflict'
 
-
 components:
 
   responses:
