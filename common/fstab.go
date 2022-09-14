@@ -24,12 +24,23 @@ var (
 
 type (
 	FSTabEntry struct {
-		Source     string
+		// The device name, label, UUID, or other means of specifying the partition or data source this entry refers to.
+		Source string
+
+		// Where the contents of the device may be accessed after mounting
 		MountPoint string
-		FSType     string
-		Options    string
-		Dump       int
-		Pass       int
+
+		// The type of file system to be mounted.
+		FSType string
+
+		// Options describing various other aspects of the file system, such as whether it is automatically mounted at boot, which users may mount or access it, whether it may be written to or only read from, its size, and so forth; the special option defaults refers to a pre-determined set of options depending on the file system type.
+		Options string
+
+		// A number indicating whether and how often the file system should be backed up by the dump program; a zero indicates the file system will never be automatically backed up.
+		Dump int
+
+		// A number indicating the order in which the fsck program will check the devices for errors at boot time
+		Pass int
 	}
 
 	FStab struct {
