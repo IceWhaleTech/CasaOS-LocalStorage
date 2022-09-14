@@ -1,4 +1,4 @@
-package common
+package fstab
 
 import (
 	"bufio"
@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	FStabPassDoNotCheck      = 0
-	FStabPassCheckDuringBoot = 1
-	FStabPassCheckAfterBoot  = 2
+	PassDoNotCheck      = 0
+	PassCheckDuringBoot = 1
+	PassCheckAfterBoot  = 2
 
-	DefaultFStabPath = "/etc/fstab"
+	DefaultPath = "/etc/fstab"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 )
 
 type (
-	FSTabEntry struct {
+	Entry struct {
 		// The device name, label, UUID, or other means of specifying the partition or data source this entry refers to.
 		Source string
 
@@ -44,15 +44,15 @@ type (
 	}
 
 	FStab struct {
-		fstabPath string
+		path string
 	}
 )
 
-func (e *FSTabEntry) String() string {
+func (e *Entry) String() string {
 	return e.Source + "\t" + e.MountPoint + "\t" + e.FSType + "\t" + e.Options + "\t" + strconv.Itoa(e.Dump) + "\t" + strconv.Itoa(e.Pass)
 }
 
-func (f *FStab) Add(e FSTabEntry, replace bool) error {
+func (f *FStab) Add(e Entry, replace bool) error {
 	entry, err := f.GetEntryByMountPoint(e.MountPoint)
 	if err != nil {
 		return err
@@ -73,11 +73,11 @@ func (f *FStab) Add(e FSTabEntry, replace bool) error {
 		}
 	}
 
-	if err := copy(f.fstabPath, f.fstabPath+".casaos.bak"); err != nil {
+	if err := copy(f.path, f.path+".casaos.bak"); err != nil {
 		return err
 	}
 
-	fstabFile, err := os.OpenFile(f.fstabPath, os.O_APPEND|os.O_WRONLY, 0o644)
+	fstabFile, err := os.OpenFile(f.path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -98,13 +98,13 @@ func (f *FStab) Add(e FSTabEntry, replace bool) error {
 }
 
 func (f *FStab) RemoveByMountPoint(mountpoint string, comment bool) error {
-	FStabPathNew := f.fstabPath + ".casaos.new"
+	FStabPathNew := f.path + ".casaos.new"
 	FStabFileNew, err := os.OpenFile(FStabPathNew, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
 
-	if err := foreachLine(f.fstabPath, func(line string) error {
+	if err := foreachLine(f.path, func(line string) error {
 		entry, _ := parseEntry(line)
 		if entry != nil && entry.MountPoint == mountpoint {
 			if comment {
@@ -120,17 +120,17 @@ func (f *FStab) RemoveByMountPoint(mountpoint string, comment bool) error {
 		return err
 	}
 
-	if err := copy(f.fstabPath, f.fstabPath+".casaos.bak"); err != nil {
+	if err := copy(f.path, f.path+".casaos.bak"); err != nil {
 		return err
 	}
 
-	return os.Rename(FStabPathNew, f.fstabPath)
+	return os.Rename(FStabPathNew, f.path)
 }
 
-func (f *FStab) GetEntries() ([]*FSTabEntry, error) {
-	entries := []*FSTabEntry{}
+func (f *FStab) GetEntries() ([]*Entry, error) {
+	entries := []*Entry{}
 
-	if err := foreachLine(f.fstabPath, func(line string) error {
+	if err := foreachLine(f.path, func(line string) error {
 		entry, err := parseEntry(line)
 		if err != nil {
 			return err
@@ -146,7 +146,7 @@ func (f *FStab) GetEntries() ([]*FSTabEntry, error) {
 	return entries, nil
 }
 
-func (f *FStab) GetEntryByMountPoint(mountpoint string) (*FSTabEntry, error) {
+func (f *FStab) GetEntryByMountPoint(mountpoint string) (*Entry, error) {
 	entries, err := f.GetEntries()
 	if err != nil {
 		return nil, err
@@ -161,13 +161,13 @@ func (f *FStab) GetEntryByMountPoint(mountpoint string) (*FSTabEntry, error) {
 	return nil, nil
 }
 
-func GetFSTab() *FStab {
+func New() *FStab {
 	return &FStab{
-		fstabPath: DefaultFStabPath,
+		path: DefaultPath,
 	}
 }
 
-func parseEntry(line string) (*FSTabEntry, error) {
+func parseEntry(line string) (*Entry, error) {
 	line = strings.TrimSpace(line)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return nil, nil
@@ -178,9 +178,9 @@ func parseEntry(line string) (*FSTabEntry, error) {
 		return nil, nil
 	}
 
-	entry := FSTabEntry{
+	entry := Entry{
 		Dump: 0,
-		Pass: FStabPassDoNotCheck,
+		Pass: PassDoNotCheck,
 	}
 
 	entry.Source = fields[0]

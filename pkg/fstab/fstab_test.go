@@ -1,4 +1,4 @@
-package common
+package fstab
 
 import (
 	"os"
@@ -15,9 +15,9 @@ const fstabContent = `
 `
 
 func TestFSTab(t *testing.T) {
-	fstab := &FStab{fstabPath: "/tmp/fstab"}
+	fstab := &FStab{path: "/tmp/fstab"}
 
-	err := os.WriteFile(fstab.fstabPath, []byte(fstabContent), 0o600)
+	err := os.WriteFile(fstab.path, []byte(fstabContent), 0o600)
 	assert.NilError(t, err)
 
 	entries, err := fstab.GetEntries()
@@ -33,14 +33,14 @@ func TestFSTab(t *testing.T) {
 	assert.Equal(t, entry.FSType, "mergerfs")
 	assert.Equal(t, entry.Options, "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M")
 	assert.Equal(t, entry.Dump, 0)
-	assert.Equal(t, entry.Pass, FStabPassDoNotCheck)
+	assert.Equal(t, entry.Pass, PassDoNotCheck)
 
 	err = fstab.RemoveByMountPoint(entry.MountPoint, false)
 	assert.NilError(t, err)
 
 	nonExistingEntry, err := fstab.GetEntryByMountPoint(entry.MountPoint)
 	assert.NilError(t, err)
-	assert.Equal(t, nonExistingEntry, (*FSTabEntry)(nil))
+	assert.Equal(t, nonExistingEntry, (*Entry)(nil))
 
 	err = fstab.Add(*entry, true)
 	assert.NilError(t, err)
@@ -53,5 +53,5 @@ func TestFSTab(t *testing.T) {
 	assert.Equal(t, entry.FSType, "mergerfs")
 	assert.Equal(t, entry.Options, "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M")
 	assert.Equal(t, entry.Dump, 0)
-	assert.Equal(t, entry.Pass, FStabPassDoNotCheck)
+	assert.Equal(t, entry.Pass, PassDoNotCheck)
 }

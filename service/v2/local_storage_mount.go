@@ -8,7 +8,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
@@ -108,13 +108,13 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 }
 
 func (s *LocalStorageService) Persist(m codegen.Mount) error {
-	return s._fstab.Add(common.FSTabEntry{
+	return s._fstab.Add(fstab.Entry{
 		Source:     *m.Source,
 		MountPoint: *m.MountPoint,
 		FSType:     *m.FSType,
 		Options:    *m.Options,
 		Dump:       0,
-		Pass:       common.FStabPassDoNotCheck,
+		Pass:       fstab.PassDoNotCheck,
 	}, true)
 }
 
