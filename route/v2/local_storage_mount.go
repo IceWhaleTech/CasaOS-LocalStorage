@@ -50,7 +50,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 			return ctx.JSON(http.StatusForbidden, codegen.MountResponseForbidden{Message: &message})
 		}
 
-		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountpointIsNotEmpty) {
+		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
 			return ctx.JSON(http.StatusConflict, codegen.MountResponseConflict{Message: &message})
 		}
 

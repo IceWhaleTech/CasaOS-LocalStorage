@@ -15,7 +15,7 @@ import (
 
 var (
 	ErrAlreadyMounted       = errors.New("volume is already mounted")
-	ErrMountpointIsNotEmpty = errors.New("mountpoint is not empty")
+	ErrMountPointIsNotEmpty = errors.New("mountpoint is not empty")
 )
 
 func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codegen.Mount, error) {
@@ -59,7 +59,7 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	// check if mountpoint is already mounted
 	results, err := s.GetMounts(codegen.GetMountsParams{
-		MountPoint: m.Mountpoint,
+		MountPoint: m.MountPoint,
 		Type:       m.FSType,
 	})
 	if err != nil {
@@ -73,15 +73,15 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	// check if mountpoint is empty
-	if empty, err := file.IsDirEmpty(*m.Mountpoint); err != nil {
+	if empty, err := file.IsDirEmpty(*m.MountPoint); err != nil {
 		logger.Error("Error when trying to check if mountpoint is empty", zap.Any("error", err), zap.Any("mount", m))
 		return nil, err
 	} else if !empty {
-		logger.Error("Mountpoint is not empty", zap.Any("mount", m))
-		return nil, ErrMountpointIsNotEmpty
+		logger.Error("MountPoint is not empty", zap.Any("mount", m))
+		return nil, ErrMountPointIsNotEmpty
 	}
 
-	cmd := exec.Command("mount", "-t", *m.FSType, *m.Source, *m.Mountpoint, "-o", *m.Options) // #nosec
+	cmd := exec.Command("mount", "-t", *m.FSType, *m.Source, *m.MountPoint, "-o", *m.Options) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
 		logger.Error(string(buf), zap.Any("error", err), zap.Any("mount", m))
@@ -89,7 +89,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	results, err = s.GetMounts(codegen.GetMountsParams{
-		MountPoint: m.Mountpoint,
+		MountPoint: m.MountPoint,
 		Type:       m.FSType,
 	})
 	if err != nil {
@@ -106,6 +106,6 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	return &results[0], nil
 }
 
-func (s *LocalStorageService) Persist() error {
+func (s *LocalStorageService) Persist(m codegen.Mount) error {
 	return nil
 }

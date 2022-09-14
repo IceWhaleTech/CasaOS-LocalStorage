@@ -8,7 +8,7 @@ import (
 func GetMount(m *mountinfo.Info) codegen.Mount {
 	return codegen.Mount{
 		Id:         &m.ID,
-		Mountpoint: &m.Mountpoint,
+		MountPoint: &m.Mountpoint,
 		Options:    &m.Options,
 		Source:     &m.Source,
 		FSType:     &m.FSType,

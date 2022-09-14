@@ -177,7 +177,7 @@ components:
         Id:
           type: integer
           readOnly: true
-        Mountpoint:
+        MountPoint:
           type: string
           example: "/DATA"
         FSType:
