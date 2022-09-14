@@ -36,7 +36,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 	var request codegen.Mount
 	if err := ctx.Bind(&request); err != nil {
 		message := err.Error()
-		return ctx.JSON(http.StatusBadRequest, codegen.MountResponseBadRequest{Message: &message})
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 	}
 
 	mount, err := s.service.Mount(request)
@@ -47,11 +47,11 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		message := err.Error()
 
 		if errors.As(err, &mountError) && errors.As(mountError.Unwrap(), &internalError) && internalError == syscall.EPERM {
-			return ctx.JSON(http.StatusForbidden, codegen.MountResponseForbidden{Message: &message})
+			return ctx.JSON(http.StatusForbidden, codegen.ResponseForbidden{Message: &message})
 		}
 
 		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			return ctx.JSON(http.StatusConflict, codegen.MountResponseConflict{Message: &message})
+			return ctx.JSON(http.StatusConflict, codegen.ResponseConflict{Message: &message})
 		}
 
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
@@ -64,5 +64,13 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusNotImplemented, codegen.BaseResponse{Message: &message})
 	}
 
-	return ctx.JSON(http.StatusOK, codegen.MountResponseOK{Data: mount})
+	return ctx.JSON(http.StatusOK, codegen.AddMountResponseOK{Data: mount})
+}
+
+func (s *LocalStorage) UpdateMount(ctx echo.Context, params codegen.UpdateMountParams) error {
+	return nil
+}
+
+func (s *LocalStorage) Umount(ctx echo.Context, params codegen.UmountParams) error {
+	return nil
 }

@@ -91,13 +91,86 @@ paths:
               $ref: '#/components/schemas/Mount'
       responses:
         '200':
-          $ref: '#/components/responses/MountResponseOK'
+          $ref: '#/components/responses/AddMountResponseOK'
         '400':
-          $ref: '#/components/responses/MountResponseBadRequest'
+          $ref: '#/components/responses/ResponseBadRequest'
         '403':
-          $ref: '#/components/responses/MountResponseForbidden'
+          $ref: '#/components/responses/ResponseForbidden'
         '409':
-          $ref: '#/components/responses/MountResponseConflict'
+          $ref: '#/components/responses/ResponseConflict'
+
+    put:
+      summary: Update a mount volume
+      description: |-
+        (TODO)
+      operationId: updateMount
+      tags:
+        - Mount methods
+      parameters:
+        - name: id
+          in: query
+          description: |-
+            Filter the results by id
+          schema:
+            type: string
+            example: "0"
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Mount'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdateMountResponseOK'
+        '400':
+          $ref: '#/components/responses/ResponseBadRequest'
+        '403':
+          $ref: '#/components/responses/ResponseForbidden'
+        '404':
+          $ref: '#/components/responses/ResponseNotFound'
+        '409':
+          $ref: '#/components/responses/ResponseConflict'
+
+    delete:
+      summary: Umount volume
+      description: |-
+        (TODO)
+      operationId: Umount
+      tags:
+        - Mount methods
+      parameters:
+        - name: id
+          in: query
+          description: |-
+            Filter the results by id
+          schema:
+            type: string
+            example: "0"
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/"
+      responses:
+        '200':
+          $ref: '#/components/responses/UmountResponseOK'
+        '400':
+          $ref: '#/components/responses/ResponseBadRequest'
+        '403':
+          $ref: '#/components/responses/ResponseForbidden'
+        '404':
+          $ref: '#/components/responses/ResponseNotFound'
+        '409':
+          $ref: '#/components/responses/ResponseConflict'
 
 
 components:
@@ -118,7 +191,7 @@ components:
                     items:
                       $ref: '#/components/schemas/Mount'
 
-    MountResponseOK:
+    AddMountResponseOK:
       description: OK
       content:
         application/json:
@@ -129,8 +202,27 @@ components:
                 properties:
                   data:
                     $ref: '#/components/schemas/Mount'
-    
-    MountResponseBadRequest:
+
+    UpdateMountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Mount'
+
+    UmountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BaseResponse'
+
+    ResponseBadRequest:
       description: Bad Request
       content:
         application/json:
@@ -140,7 +232,17 @@ components:
           example:
             message: "Bad Request"
 
-    MountResponseForbidden:
+    ResponseNotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+          example:
+            message: "Not Found"
+
+    ResponseForbidden:
       description: Forbidden
       content:
         application/json:
@@ -150,7 +252,7 @@ components:
           example:
             message: "Forbidden"
 
-    MountResponseConflict:
+    ResponseConflict:
       description: Conflict
       content:
         application/json:
