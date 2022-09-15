@@ -11,6 +11,6 @@ func GetMount(m *mountinfo.Info) codegen.Mount {
 		MountPoint: &m.Mountpoint,
 		Options:    &m.Options,
 		Source:     &m.Source,
-		FSType:     &m.FSType,
+		Fstype:     &m.FSType,
 	}
 }

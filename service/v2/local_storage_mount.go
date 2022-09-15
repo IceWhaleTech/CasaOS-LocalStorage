@@ -65,7 +65,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	// check if mountpoint is already mounted
 	results, err := s.GetMounts(codegen.GetMountsParams{
 		MountPoint: m.MountPoint,
-		Type:       m.FSType,
+		Type:       m.Fstype,
 	})
 	if err != nil {
 		logger.Error("Error when trying to get mounted volume", zap.Error(err), zap.Any("mount", m))
@@ -86,7 +86,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 		return nil, ErrMountPointIsNotEmpty
 	}
 
-	cmd := exec.Command("mount", "-t", *m.FSType, *m.Source, *m.MountPoint, "-o", *m.Options) // #nosec
+	cmd := exec.Command("mount", "-t", *m.Fstype, *m.Source, *m.MountPoint, "-o", *m.Options) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
 		logger.Error(string(buf), zap.Error(err), zap.Any("mount", m))
@@ -95,7 +95,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 
 	results, err = s.GetMounts(codegen.GetMountsParams{
 		MountPoint: m.MountPoint,
-		Type:       m.FSType,
+		Type:       m.Fstype,
 	})
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (s *LocalStorageService) SaveToFStab(m codegen.Mount) error {
 	if err := s._fstab.Add(fstab.Entry{
 		Source:     *m.Source,
 		MountPoint: *m.MountPoint,
-		FSType:     *m.FSType,
+		FSType:     *m.Fstype,
 		Options:    *m.Options,
 		Dump:       0,
 		Pass:       fstab.PassDoNotCheck,

@@ -270,27 +270,27 @@ components:
       type: object
       minProperties: 1
       properties:
-        Id:
+        id:
           type: integer
           readOnly: true
-        MountPoint:
+        mount_point:
           type: string
           example: "/DATA"
-        FSType:
+        fstype:
           type: string
           example: "fuse.mergerfs"
-        Source:
+        source:
           type: string
           example: "/mnt/a:/mnt/b"
-        Options:
+        options:
           type: string
           example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
-        Persist:
+        persist:
           type: boolean
           description: |-
             `true` if the mount should be persisted in `/etc/fstab`, `false` otherwise
           default: false
-        Extended:
+        extended:
           type: object
           description: |-
             Extended properties of the mount

@@ -22,7 +22,7 @@ func init() {
 }
 
 func (f *mergerFS) PreMount(m codegen.Mount) *codegen.Mount {
-	if *m.FSType != fsTypeFull && *m.FSType != fsType {
+	if *m.Fstype != fsTypeFull && *m.Fstype != fsType {
 		return &m
 	}
 
@@ -39,7 +39,7 @@ func (f *mergerFS) PostMount(m codegen.Mount) *codegen.Mount {
 }
 
 func (f *mergerFS) Extend(m codegen.Mount) *codegen.Mount {
-	if *m.FSType != fsTypeFull && *m.FSType != fsType {
+	if *m.Fstype != fsTypeFull && *m.Fstype != fsType {
 		return &m
 	}
 
@@ -51,9 +51,9 @@ func (f *mergerFS) Extend(m codegen.Mount) *codegen.Mount {
 }
 
 func updateFSType(m codegen.Mount) codegen.Mount {
-	if *m.FSType == fsType {
+	if *m.Fstype == fsType {
 		f := fsTypeFull
-		m.FSType = &f
+		m.Fstype = &f
 	}
 
 	return m

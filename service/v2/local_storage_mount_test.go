@@ -445,7 +445,7 @@ func TestGetMountsWithFilter(t *testing.T) {
 	for i := range mounts {
 		assert.Equal(t, *mounts[i].Id, expectedMountsByType[i].ID)
 		assert.Equal(t, *mounts[i].MountPoint, expectedMountsByType[i].Mountpoint)
-		assert.Equal(t, *mounts[i].FSType, expectedMountsByType[i].FSType)
+		assert.Equal(t, *mounts[i].Fstype, expectedMountsByType[i].FSType)
 		assert.Equal(t, *mounts[i].Source, expectedMountsByType[i].Source)
 		assert.Equal(t, *mounts[i].Options, expectedMountsByType[i].Options)
 	}
