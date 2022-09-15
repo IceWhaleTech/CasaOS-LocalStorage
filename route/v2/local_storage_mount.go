@@ -3,7 +3,6 @@ package v2
 import (
 	"errors"
 	"net/http"
-	"syscall"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
@@ -42,14 +41,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 
 	mount, err := service.MyService.LocalStorage().Mount(request)
 	if err != nil {
-		var mountError MountError
-		var internalError syscall.Errno
-
 		message := err.Error()
-
-		if errors.As(err, &mountError) && errors.As(mountError.Unwrap(), &internalError) && internalError == syscall.EPERM {
-			return ctx.JSON(http.StatusForbidden, codegen.ResponseForbidden{Message: &message})
-		}
 
 		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
 			return ctx.JSON(http.StatusConflict, codegen.ResponseConflict{Message: &message})
@@ -69,9 +61,58 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 }
 
 func (s *LocalStorage) Umount(ctx echo.Context, params codegen.UmountParams) error {
-	return nil
+	if err := service.MyService.LocalStorage().Umount(params.MountPoint); err != nil {
+		message := err.Error()
+
+		if errors.Is(err, v2.ErrNotMounted) {
+			return ctx.JSON(http.StatusNotFound, codegen.ResponseNotFound{Message: &message})
+		}
+
+		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+	}
+
+	if params.Persist != nil && *params.Persist {
+		if err := service.MyService.LocalStorage().RemoveFromFStab(params.MountPoint); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, codegen.UmountResponseOK{})
 }
 
 func (s *LocalStorage) UpdateMount(ctx echo.Context, params codegen.UpdateMountParams) error {
-	return nil
+	var request codegen.Mount
+	if err := ctx.Bind(&request); err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+	}
+
+	if err := service.MyService.LocalStorage().Umount(params.MountPoint); err != nil {
+		message := err.Error()
+
+		if !errors.Is(err, v2.ErrNotMounted) {
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+	}
+
+	mount, err := service.MyService.LocalStorage().Mount(request)
+	if err != nil {
+		message := err.Error()
+
+		if errors.Is(err, v2.ErrAlreadyMounted) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+			return ctx.JSON(http.StatusConflict, codegen.ResponseConflict{Message: &message})
+		}
+
+		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+	}
+
+	if request.Persist != nil && *request.Persist {
+		if err := service.MyService.LocalStorage().SaveToFStab(request); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, codegen.AddMountResponseOK{Data: mount})
 }

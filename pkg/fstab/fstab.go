@@ -59,12 +59,12 @@ func (f *FStab) Add(e Entry, replace bool) error {
 	}
 
 	if entry != nil {
-		if !replace ||
-			entry.Source != e.Source ||
-			entry.FSType != e.FSType ||
-			entry.Options != e.Options ||
-			entry.Dump != e.Dump ||
-			entry.Pass != e.Pass {
+		if !replace &&
+			(entry.Source != e.Source ||
+				entry.FSType != e.FSType ||
+				entry.Options != e.Options ||
+				entry.Dump != e.Dump ||
+				entry.Pass != e.Pass) {
 			return ErrDifferentFSTabEntryWithSameMountPoint
 		}
 
@@ -83,17 +83,11 @@ func (f *FStab) Add(e Entry, replace bool) error {
 	}
 	defer fstabFile.Close()
 
-	_, err = fstabFile.WriteString("\n# Added by the CasaOS Local Storage service\n")
+	_, err = fstabFile.WriteString(e.String() + "\t# Added by the CasaOS\n")
 	if err != nil {
 		return err
 	}
 
-	_, err = fstabFile.WriteString(e.String() + "\n")
-	if err != nil {
-		return err
-	}
-
-	_, err = fstabFile.WriteString("\n") // newline
 	return err
 }
 
@@ -174,7 +168,7 @@ func parseEntry(line string) (*Entry, error) {
 	}
 
 	fields := strings.Fields(line)
-	if len(fields) < 4 || len(fields) > 6 {
+	if len(fields) < 4 {
 		return nil, nil
 	}
 

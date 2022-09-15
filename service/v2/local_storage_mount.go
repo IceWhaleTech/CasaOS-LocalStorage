@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	ErrNotMounted           = errors.New("not mounted")
 	ErrAlreadyMounted       = errors.New("volume is already mounted")
 	ErrMountPointIsNotEmpty = errors.New("mountpoint is not empty")
 )
@@ -113,6 +114,20 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 }
 
 func (s *LocalStorageService) Umount(mountpoint string) error {
+	// check if mountpoint is already mounted
+	results, err := s.GetMounts(codegen.GetMountsParams{
+		MountPoint: &mountpoint,
+	})
+	if err != nil {
+		logger.Error("Error when trying to get mounted volume", zap.Error(err), zap.Any("mountpoint", mountpoint))
+		return err
+	}
+
+	if len(results) == 0 {
+		logger.Info("not mounted", zap.Any("mountpoint", mountpoint))
+		return ErrNotMounted
+	}
+
 	cmd := exec.Command("umount", mountpoint) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
@@ -138,7 +153,7 @@ func (s *LocalStorageService) SaveToFStab(m codegen.Mount) error {
 }
 
 func (s *LocalStorageService) RemoveFromFStab(mountpoint string) error {
-	if err := s._fstab.RemoveByMountPoint(mountpoint, true); err != nil {
+	if err := s._fstab.RemoveByMountPoint(mountpoint, false); err != nil {
 		logger.Error("Error when trying to unpersist mount", zap.Error(err), zap.Any("mountpoint", mountpoint))
 		return err
 	}
