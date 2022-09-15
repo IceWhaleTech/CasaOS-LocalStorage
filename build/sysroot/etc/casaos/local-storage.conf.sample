@@ -1,6 +1,5 @@
 [common]
 RuntimePath=/var/run/casaos
-PluginPath=/usr/lib/casaos/plugins
 
 [app]
 LogPath=/var/log/casaos

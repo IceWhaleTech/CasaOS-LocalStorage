@@ -59,7 +59,7 @@ type Drive struct {
 	ChildrenNumber int    `json:"children_number"`
 }
 
-type DriveUSB struct {
+type USBDriveStatus struct {
 	Name     string        `json:"name"`
 	Size     uint64        `json:"size"`
 	Model    string        `json:"model"`
@@ -89,7 +89,7 @@ type Storages struct {
 	Children []Storage `json:"children"`
 }
 
-type Summary struct {
+type DiskStatus struct {
 	Size   uint64 `json:"size"`
 	Avail  uint64 `json:"avail"` // 可用空间
 	Health bool   `json:"health"`

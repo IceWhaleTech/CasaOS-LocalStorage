@@ -31,11 +31,11 @@ func PutSystemUSBAutoMount(c *gin.Context) {
 	}
 	go func() {
 		usbList := service.MyService.Disk().LSBLK(false)
-		usb := []model1.DriveUSB{}
+		usb := []model1.USBDriveStatus{}
 		for _, v := range usbList {
 			if v.Tran == "usb" {
 				isMount := false
-				temp := model1.DriveUSB{}
+				temp := model1.USBDriveStatus{}
 				temp.Model = v.Model
 				temp.Name = v.Name
 				temp.Size = v.Size
@@ -78,11 +78,11 @@ func GetSystemUSBAutoMount(c *gin.Context) {
 	}
 	go func() {
 		usbList := service.MyService.Disk().LSBLK(false)
-		usb := []model1.DriveUSB{}
+		usb := []model1.USBDriveStatus{}
 		for _, v := range usbList {
 			if v.Tran == "usb" {
 				isMount := false
-				temp := model1.DriveUSB{}
+				temp := model1.USBDriveStatus{}
 				temp.Model = v.Model
 				temp.Name = v.Name
 				temp.Size = v.Size

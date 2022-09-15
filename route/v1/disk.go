@@ -39,10 +39,10 @@ func GetDiskList(c *gin.Context) {
 	t := c.DefaultQuery("type", "")
 	list := service.MyService.Disk().LSBLK(false)
 	if t == "usb" {
-		data := []model1.DriveUSB{}
+		data := []model1.USBDriveStatus{}
 		for _, v := range list {
 			if v.Tran == "usb" {
-				temp := model1.DriveUSB{}
+				temp := model1.USBDriveStatus{}
 				temp.Model = v.Model
 				temp.Name = v.Name
 				temp.Size = v.Size
@@ -191,10 +191,10 @@ func GetDiskList(c *gin.Context) {
 // @Router /disk/list [get]
 func GetDisksUSBList(c *gin.Context) {
 	list := service.MyService.Disk().LSBLK(false)
-	data := []model1.DriveUSB{}
+	data := []model1.USBDriveStatus{}
 	for _, v := range list {
 		if v.Tran == "usb" {
-			temp := model1.DriveUSB{}
+			temp := model1.USBDriveStatus{}
 			temp.Model = v.Model
 			temp.Name = v.Label
 			if temp.Name == "" {

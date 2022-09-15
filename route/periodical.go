@@ -19,7 +19,7 @@ import (
 func SendDiskBySocket() {
 	list := service.MyService.Disk().LSBLK(true)
 
-	summary := model.Summary{}
+	status := model.DiskStatus{}
 	healthy := true
 	findSystem := 0
 
@@ -32,9 +32,9 @@ func SendDiskBySocket() {
 							s, _ := strconv.ParseUint(v.FSSize, 10, 64)
 							a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
 							u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-							summary.Size += s
-							summary.Avail += a
-							summary.Used += u
+							status.Size += s
+							status.Avail += a
+							status.Used += u
 							findSystem = 1
 							break
 						}
@@ -44,9 +44,9 @@ func SendDiskBySocket() {
 						s, _ := strconv.ParseUint(list[i].Children[j].FSSize, 10, 64)
 						a, _ := strconv.ParseUint(list[i].Children[j].FSAvail, 10, 64)
 						u, _ := strconv.ParseUint(list[i].Children[j].FSUsed, 10, 64)
-						summary.Size += s
-						summary.Avail += a
-						summary.Used += u
+						status.Size += s
+						status.Avail += a
+						status.Used += u
 						findSystem = 1
 						break
 					}
@@ -72,29 +72,32 @@ func SendDiskBySocket() {
 					s, _ := strconv.ParseUint(v.FSSize, 10, 64)
 					a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
 					u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-					summary.Size += s
-					summary.Avail += a
-					summary.Used += u
+					status.Size += s
+					status.Avail += a
+					status.Used += u
 				}
 			}
 
 		}
 	}
 
-	summary.Health = healthy
+	status.Health = healthy
 
-	// TODO - @tiger - implement proxy to notify service
+	message := make(map[string]interface{})
+	message["sys_disk"] = status
 
-	// service.MyService.Notify().SendDiskInfoBySocket(summary)
+	if err := service.MyService.Notify().SendSystemStatusNotify(message); err != nil {
+		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
+	}
 }
 
 func SendUSBBySocket() {
 	usbList := service.MyService.Disk().LSBLK(false)
-	usb := []model.DriveUSB{}
+	statusList := []model.USBDriveStatus{}
 	for _, v := range usbList {
 		if v.Tran == "usb" {
 			isMount := false
-			temp := model.DriveUSB{}
+			temp := model.USBDriveStatus{}
 			temp.Model = v.Model
 			temp.Name = v.Name
 			temp.Size = v.Size
@@ -107,14 +110,17 @@ func SendUSBBySocket() {
 				}
 			}
 			if isMount {
-				usb = append(usb, temp)
+				statusList = append(statusList, temp)
 			}
 		}
 	}
 
-	// TODO - @tiger - implement proxy to notify service
+	message := make(map[string]interface{})
+	message["sys_usb"] = statusList
 
-	// service.MyService.Notify().SendUSBInfoBySocket(usb)
+	if err := service.MyService.Notify().SendSystemStatusNotify(message); err != nil {
+		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
+	}
 }
 
 func MonitoryUSB() {

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"github.com/IceWhaleTech/CasaOS/common"
+
 	gateway "github.com/IceWhaleTech/CasaOS-Gateway/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
@@ -18,10 +20,16 @@ type Repository interface {
 	USB() USBService
 	LocalStorage() *v2.LocalStorageService
 	Gateway() gateway.ManagementService
+	Notify() common.NotifyService
 }
 
 func NewService(db *gorm.DB) Repository {
 	gatewayManagement, err := gateway.NewManagementService(config.CommonInfo.RuntimePath)
+	if err != nil {
+		panic(err)
+	}
+
+	notifyService, err := common.NewNotifyService(config.CommonInfo.RuntimePath)
 	if err != nil {
 		panic(err)
 	}
@@ -31,6 +39,7 @@ func NewService(db *gorm.DB) Repository {
 		disk:         NewDiskService(db),
 		localStorage: v2.NewLocalStorageService(wrapper.NewMountInfo()),
 		gateway:      gatewayManagement,
+		notify:       notifyService,
 	}
 }
 
@@ -39,6 +48,7 @@ type store struct {
 	disk         DiskService
 	localStorage *v2.LocalStorageService
 	gateway      gateway.ManagementService
+	notify       common.NotifyService
 }
 
 func (c *store) Gateway() gateway.ManagementService {
@@ -55,4 +65,8 @@ func (c *store) Disk() DiskService {
 
 func (c *store) LocalStorage() *v2.LocalStorageService {
 	return c.localStorage
+}
+
+func (c *store) Notify() common.NotifyService {
+	return c.notify
 }
