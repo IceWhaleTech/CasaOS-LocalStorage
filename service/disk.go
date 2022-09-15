@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
@@ -22,6 +23,7 @@ import (
 
 type DiskService interface {
 	AddPartition(path string) string
+	CheckSerialDiskMount()
 	DeleteMount(id string)
 	DeleteMountPoint(path, mountPoint string)
 	DelPartition(path, num string) ([]string, error)
@@ -221,7 +223,6 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 }
 
 func (d *diskService) MountDisk(path, volume string) error {
-	// fmt.Println("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
 	r, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
 	if err != nil {
 		return err
@@ -254,6 +255,61 @@ func (d *diskService) GetSerialAll() []model2.SerialDisk {
 	var m []model2.SerialDisk
 	d.db.Find(&m)
 	return m
+}
+
+func (d *diskService) CheckSerialDiskMount() {
+	logger.Info("Checking serial disk mount...")
+
+	// check mount point
+	dbList := d.GetSerialAll()
+
+	list := d.LSBLK(true)
+	mountPoint := make(map[string]string, len(dbList))
+	// remount
+	for _, v := range dbList {
+		mountPoint[v.UUID] = v.MountPoint
+	}
+	for _, v := range list {
+		output, err := command.ExecEnabledSMART(v.Path)
+		if err != nil {
+			if output != nil {
+				logger.Error("failed to enable S.M.A.R.T: "+string(output), zap.Error(err), zap.String("path", v.Path))
+			} else {
+				logger.Error("failed to enable S.M.A.R.T", zap.Error(err), zap.String("path", v.Path))
+			}
+		}
+
+		if v.Children != nil {
+			for _, h := range v.Children {
+				// if len(h.MountPoint) == 0 && len(v.Children) == 1 && h.FsType == "ext4" {
+				if m, ok := mountPoint[h.UUID]; ok {
+					// mount point check
+					volume := m
+					if !file.CheckNotExist(m) {
+						for i := 0; file.CheckNotExist(volume); i++ {
+							volume = m + strconv.Itoa(i+1)
+						}
+					}
+					if err := d.MountDisk(h.Path, volume); err != nil {
+						logger.Error("Failed to mount disk", zap.Error(err), zap.String("path", h.Path), zap.String("volume", volume))
+					}
+
+					if volume != m {
+						ms := model2.SerialDisk{}
+						ms.UUID = v.UUID
+						ms.MountPoint = volume
+						d.UpdateMountPoint(ms)
+					}
+				}
+			}
+		}
+	}
+	d.RemoveLSBLKCache()
+
+	cmd := "source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AutoRemoveUnuseDir"
+	if err := command.OnlyExec(cmd); err != nil {
+		logger.Error("Failed to remove unuse dir", zap.Error(err), zap.String("cmd", cmd))
+	}
 }
 
 func NewDiskService(db *gorm.DB) DiskService {

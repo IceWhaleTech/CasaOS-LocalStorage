@@ -7,11 +7,11 @@ AutoRemoveUnuseDir() {
   for i in $dir; do
 
     path="$DIRECTORY$i"
-    mountStr=$(mountpoint $path)
+    mountStr=$(mountpoint "$path")
     notMountpoint="is not a mountpoint"
     if [[ $mountStr =~ $notMountpoint ]]; then
-      if [ "$(ls -A $path)" = "" ]; then
-        rm -fr $path
+      if [ "$(ls -A "$path")" = "" ]; then
+        rm -fr "$path"
       else
         echo "$path is not empty"
       fi

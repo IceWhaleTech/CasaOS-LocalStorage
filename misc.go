@@ -1,4 +1,4 @@
-package route
+package main
 
 import (
 	"os"
@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func SendDiskBySocket() {
+func sendDiskBySocket() {
 	list := service.MyService.Disk().LSBLK(true)
 
 	status := model.DiskStatus{}
@@ -91,7 +91,7 @@ func SendDiskBySocket() {
 	}
 }
 
-func SendUSBBySocket() {
+func sendUSBBySocket() {
 	usbList := service.MyService.Disk().LSBLK(false)
 	statusList := []model.USBDriveStatus{}
 	for _, v := range usbList {
@@ -123,7 +123,7 @@ func SendUSBBySocket() {
 	}
 }
 
-func MonitoryUSB() {
+func monitorUSB() {
 	var matcher netlink.Matcher
 
 	conn := new(netlink.UEventConn)
@@ -149,11 +149,17 @@ func MonitoryUSB() {
 		case uevent := <-queue:
 			if uevent.Env["DEVTYPE"] == "disk" {
 				time.Sleep(time.Microsecond * 500)
-				SendUSBBySocket()
+				sendUSBBySocket()
 				continue
 			}
 		case err := <-errors:
 			logger.Error("udev err", zap.Error(err))
 		}
 	}
+}
+
+func sendStorageStats() {
+	logger.Info("sending stats to CasaOS core...")
+	sendDiskBySocket()
+	sendUSBBySocket()
 }

@@ -9,10 +9,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
-	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
@@ -20,10 +18,8 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron"
 	"go.uber.org/zap"
@@ -66,18 +62,16 @@ func init() {
 
 	service.Cache = cache.Init()
 
-	checkSerialDiskMount()
+	service.MyService.Disk().CheckSerialDiskMount()
 }
 
 func main() {
-	go route.MonitoryUSB()
+	go monitorUSB()
+
+	sendStorageStats()
 
 	crontab := cron.New()
-
-	err := crontab.AddFunc("0/5 * * * * *", func() {
-		// TODO - @tiger - call System common method to report disk utilization.
-	})
-	if err != nil {
+	if err := crontab.AddFunc("*/5 * * * * *", func() { sendStorageStats() }); err != nil {
 		logger.Error("crontab add func error", zap.Error(err))
 	}
 
@@ -135,44 +129,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func checkSerialDiskMount() {
-	// check mount point
-	dbList := service.MyService.Disk().GetSerialAll()
-
-	list := service.MyService.Disk().LSBLK(true)
-	mountPoint := make(map[string]string, len(dbList))
-	// remount
-	for _, v := range dbList {
-		mountPoint[v.UUID] = v.MountPoint
-	}
-	for _, v := range list {
-		command.ExecEnabledSMART(v.Path)
-		if v.Children != nil {
-			for _, h := range v.Children {
-				// if len(h.MountPoint) == 0 && len(v.Children) == 1 && h.FsType == "ext4" {
-				if m, ok := mountPoint[h.UUID]; ok {
-					// mount point check
-					volume := m
-					if !file.CheckNotExist(m) {
-						for i := 0; file.CheckNotExist(volume); i++ {
-							volume = m + strconv.Itoa(i+1)
-						}
-					}
-					service.MyService.Disk().MountDisk(h.Path, volume)
-					if volume != m {
-						ms := model.SerialDisk{}
-						ms.UUID = v.UUID
-						ms.MountPoint = volume
-						service.MyService.Disk().UpdateMountPoint(ms)
-					}
-
-				}
-				//}
-			}
-		}
-	}
-	service.MyService.Disk().RemoveLSBLKCache()
-	command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AutoRemoveUnuseDir")
 }

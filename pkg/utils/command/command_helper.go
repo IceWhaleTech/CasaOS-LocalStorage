@@ -89,7 +89,7 @@ func ExecSmartCTLByPath(path string) []byte {
 }
 
 func ExecEnabledSMART(path string) ([]byte, error) {
-	return exec.Command("smartctl", "-s on", path).Output()
+	return exec.Command("smartctl", "-s", "on", path).CombinedOutput()
 }
 
 // 执行 lsblk 命令
