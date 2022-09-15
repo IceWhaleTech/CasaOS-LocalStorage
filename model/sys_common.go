@@ -2,6 +2,7 @@ package model
 
 type CommonModel struct {
 	RuntimePath string
+	PluginPath  string
 }
 
 type APPModel struct {

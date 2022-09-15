@@ -10,6 +10,7 @@ import (
 var (
 	CommonInfo = &model.CommonModel{
 		RuntimePath: "/var/run/casaos",
+		PluginPath:  "/usr/lib/casaos/plugins",
 	}
 
 	AppInfo = &model.APPModel{

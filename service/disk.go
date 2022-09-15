@@ -69,14 +69,14 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	var m model.SmartctlA
 	str := command.ExecSmartCTLByPath(path)
 	if str == nil {
-		logger.Error("failed to  exec shell ", zap.Any("err", "smartctl exec error"))
+		logger.Error("failed to  exec shell - smartctl exec error")
 		Cache.Add(key, m, time.Minute*10)
 		return m
 	}
 
 	err := json2.Unmarshal([]byte(str), &m)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+		logger.Error("Failed to unmarshal json", zap.Error(err))
 	}
 	if !reflect.DeepEqual(m, model.SmartctlA{}) {
 		Cache.Add(key, m, time.Hour*24)
@@ -139,13 +139,13 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 
 	str := command.ExecLSBLK()
 	if str == nil {
-		logger.Error("Failed to exec shell", zap.Any("err", "lsblk exec error"))
+		logger.Error("Failed to exec shell - lsblk exec error")
 		return nil
 	}
 	var m []model.LSBLKModel
 	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &m)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+		logger.Error("Failed to unmarshal json", zap.Error(err))
 	}
 
 	var c []model.LSBLKModel
@@ -160,7 +160,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 				if child.RM {
 					output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
 					if err != nil {
-						logger.Error("Failed to exec shell", zap.Any("err", err))
+						logger.Error("Failed to exec shell", zap.Error(err))
 						return nil
 					}
 
@@ -184,7 +184,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			if fsused > 0 {
 				i.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(i.Size)), 64)
 				if err != nil {
-					logger.Error("Failed to parse float", zap.Any("err", err))
+					logger.Error("Failed to parse float", zap.Error(err))
 				}
 			}
 			n = append(n, i)
@@ -202,14 +202,14 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 	str := command.ExecLSBLKByPath(path)
 	if str == nil {
-		logger.Error("Failed to exec shell", zap.Any("err", "lsblk exec error"))
+		logger.Error("Failed to exec shell - lsblk exec error")
 		return model.LSBLKModel{}
 	}
 
 	var ml []model.LSBLKModel
 	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &ml)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Any("err", err))
+		logger.Error("Failed to unmarshal json", zap.Error(err))
 		return model.LSBLKModel{}
 	}
 

@@ -62,7 +62,7 @@ func init() {
 
 	sqliteDB := sqlite.GetDB(*dbFlag)
 
-	service.MyService = service.NewService(sqliteDB, config.CommonInfo.RuntimePath)
+	service.MyService = service.NewService(sqliteDB)
 
 	service.Cache = cache.Init()
 
@@ -117,7 +117,7 @@ func main() {
 	}
 
 	if supported, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
-		logger.Error("Failed to notify systemd that local storage service is ready", zap.Any("error", err))
+		logger.Error("Failed to notify systemd that local storage service is ready", zap.Error(err))
 	} else if supported {
 		logger.Info("Notified systemd that local storage service is ready")
 	} else {

@@ -10,6 +10,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
 )
@@ -44,27 +45,29 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 		return false, false
 	})
 	if err != nil {
-		logger.Error("Error when trying to get mounted volume(s)", zap.Any("error", err))
+		logger.Error("Error when trying to get mounted volume(s)", zap.Error(err))
 		return nil, err
 	}
 
 	results := make([]codegen.Mount, len(mounts))
 
 	for i, mountInfo := range mounts {
-		results[i] = adapter.GetMount(mountInfo)
+		results[i] = *fs.ExtendAll(adapter.GetMount(mountInfo))
 	}
 
 	return results, nil
 }
 
 func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
+	m = *fs.PreMountAll(m)
+
 	// check if mountpoint is already mounted
 	results, err := s.GetMounts(codegen.GetMountsParams{
 		MountPoint: m.MountPoint,
 		Type:       m.FSType,
 	})
 	if err != nil {
-		logger.Error("Error when trying to get mounted volume", zap.Any("error", err), zap.Any("mount", m))
+		logger.Error("Error when trying to get mounted volume", zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	}
 
@@ -75,7 +78,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 
 	// check if mountpoint is empty
 	if empty, err := file.IsDirEmpty(*m.MountPoint); err != nil {
-		logger.Error("Error when trying to check if mountpoint is empty", zap.Any("error", err), zap.Any("mount", m))
+		logger.Error("Error when trying to check if mountpoint is empty", zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	} else if !empty {
 		logger.Error("MountPoint is not empty", zap.Any("mount", m))
@@ -85,7 +88,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	cmd := exec.Command("mount", "-t", *m.FSType, *m.Source, *m.MountPoint, "-o", *m.Options) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
-		logger.Error(string(buf), zap.Any("error", err), zap.Any("mount", m))
+		logger.Error(string(buf), zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	}
 
@@ -104,20 +107,40 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	if len(results) > 1 {
 	}
 
+	results[0] = *fs.PostMountAll(results[0])
+
 	return &results[0], nil
 }
 
-func (s *LocalStorageService) Persist(m codegen.Mount) error {
-	return s._fstab.Add(fstab.Entry{
+func (s *LocalStorageService) Umount(mountpoint string) error {
+	cmd := exec.Command("umount", mountpoint) // #nosec
+	logger.Info("Executing command", zap.Any("command", cmd.String()))
+	if buf, err := cmd.CombinedOutput(); err != nil {
+		logger.Error(string(buf), zap.Error(err), zap.Any("mountpoint", mountpoint))
+		return err
+	}
+	return nil
+}
+
+func (s *LocalStorageService) SaveToFStab(m codegen.Mount) error {
+	if err := s._fstab.Add(fstab.Entry{
 		Source:     *m.Source,
 		MountPoint: *m.MountPoint,
 		FSType:     *m.FSType,
 		Options:    *m.Options,
 		Dump:       0,
 		Pass:       fstab.PassDoNotCheck,
-	}, true)
+	}, true); err != nil {
+		logger.Error("Error when trying to persist mount", zap.Error(err), zap.Any("mount", m))
+		return err
+	}
+	return nil
 }
 
-func (s *LocalStorageService) Remove(mountpoint string) error {
-	return s._fstab.RemoveByMountPoint(mountpoint, true)
+func (s *LocalStorageService) RemoveFromFStab(mountpoint string) error {
+	if err := s._fstab.RemoveByMountPoint(mountpoint, true); err != nil {
+		logger.Error("Error when trying to unpersist mount", zap.Error(err), zap.Any("mountpoint", mountpoint))
+		return err
+	}
+	return nil
 }

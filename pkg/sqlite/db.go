@@ -34,7 +34,7 @@ func GetDB(dbPath string) *gorm.DB {
 	}
 
 	if err := db.AutoMigrate(&model.SerialDisk{}); err != nil {
-		logger.Error("check or create db error", zap.Any("error", err))
+		logger.Error("check or create db error", zap.Error(err))
 	}
 
 	_gdb = db

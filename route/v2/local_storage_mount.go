@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 
 	"github.com/labstack/echo/v4"
@@ -18,7 +19,7 @@ type MountError interface {
 }
 
 func (s *LocalStorage) GetMounts(ctx echo.Context, params codegen.GetMountsParams) error {
-	mounts, err := s.service.GetMounts(params)
+	mounts, err := service.MyService.LocalStorage().GetMounts(params)
 	if err != nil {
 		message := err.Error()
 		response := codegen.BaseResponse{
@@ -39,7 +40,7 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 	}
 
-	mount, err := s.service.Mount(request)
+	mount, err := service.MyService.LocalStorage().Mount(request)
 	if err != nil {
 		var mountError MountError
 		var internalError syscall.Errno
@@ -58,19 +59,19 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 	}
 
 	if request.Persist != nil && *request.Persist {
-		// TODO - persist mount to fstab
-
-		message := "Persisting mounts to fstab is not yet implemented"
-		return ctx.JSON(http.StatusNotImplemented, codegen.BaseResponse{Message: &message})
+		if err := service.MyService.LocalStorage().SaveToFStab(request); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, codegen.AddMountResponseOK{Data: mount})
 }
 
-func (s *LocalStorage) UpdateMount(ctx echo.Context, params codegen.UpdateMountParams) error {
+func (s *LocalStorage) Umount(ctx echo.Context, params codegen.UmountParams) error {
 	return nil
 }
 
-func (s *LocalStorage) Umount(ctx echo.Context, params codegen.UmountParams) error {
+func (s *LocalStorage) UpdateMount(ctx echo.Context, params codegen.UpdateMountParams) error {
 	return nil
 }

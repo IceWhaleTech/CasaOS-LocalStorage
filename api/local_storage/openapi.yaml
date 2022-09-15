@@ -146,20 +146,14 @@ paths:
       tags:
         - Mount methods
       parameters:
-        - name: id
-          in: query
-          description: |-
-            Filter the results by id
-          schema:
-            type: string
-            example: "0"
         - name: mount_point
           in: query
+          required: true
           description: |-
             Filter the results by mount point
           schema:
             type: string
-            example: "/"
+            example: "/DATA"
       responses:
         '200':
           $ref: '#/components/responses/UmountResponseOK'

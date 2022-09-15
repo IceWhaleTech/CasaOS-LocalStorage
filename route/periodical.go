@@ -147,7 +147,7 @@ func MonitoryUSB() {
 				continue
 			}
 		case err := <-errors:
-			logger.Error("udev err", zap.Any("err", err))
+			logger.Error("udev err", zap.Error(err))
 		}
 	}
 }
