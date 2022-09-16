@@ -64,7 +64,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 
 	// check if mountpoint is already mounted
 	results, err := s.GetMounts(codegen.GetMountsParams{
-		MountPoint: m.MountPoint,
+		MountPoint: &m.MountPoint,
 		Type:       m.Fstype,
 	})
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	// check if mountpoint is empty
-	if empty, err := file.IsDirEmpty(*m.MountPoint); err != nil {
+	if empty, err := file.IsDirEmpty(m.MountPoint); err != nil {
 		logger.Error("Error when trying to check if mountpoint is empty", zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	} else if !empty {
@@ -86,7 +86,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 		return nil, ErrMountPointIsNotEmpty
 	}
 
-	cmd := exec.Command("mount", "-t", *m.Fstype, *m.Source, *m.MountPoint, "-o", *m.Options) // #nosec
+	cmd := exec.Command("mount", "-t", *m.Fstype, *m.Source, m.MountPoint, "-o", *m.Options) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
 		logger.Error(string(buf), zap.Error(err), zap.Any("mount", m))
@@ -94,7 +94,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	results, err = s.GetMounts(codegen.GetMountsParams{
-		MountPoint: m.MountPoint,
+		MountPoint: &m.MountPoint,
 		Type:       m.Fstype,
 	})
 	if err != nil {
@@ -139,12 +139,13 @@ func (s *LocalStorageService) Umount(mountpoint string) error {
 
 func (s *LocalStorageService) SaveToFStab(m codegen.Mount) error {
 	if err := s._fstab.Add(fstab.Entry{
-		Source:     *m.Source,
-		MountPoint: *m.MountPoint,
-		FSType:     *m.Fstype,
-		Options:    *m.Options,
-		Dump:       0,
-		Pass:       fstab.PassDoNotCheck,
+		MountPoint: m.MountPoint,
+
+		Source:  *m.Source,
+		FSType:  *m.Fstype,
+		Options: *m.Options,
+		Dump:    0,
+		Pass:    fstab.PassDoNotCheck,
 	}, true); err != nil {
 		logger.Error("Error when trying to persist mount", zap.Error(err), zap.Any("mount", m))
 		return err

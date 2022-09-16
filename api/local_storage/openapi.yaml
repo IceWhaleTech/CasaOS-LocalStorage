@@ -268,7 +268,8 @@ components:
 
     Mount:
       type: object
-      minProperties: 1
+      required:
+        - mount_point
       properties:
         id:
           type: integer

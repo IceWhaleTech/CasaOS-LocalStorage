@@ -305,11 +305,6 @@ func (d *diskService) CheckSerialDiskMount() {
 		}
 	}
 	d.RemoveLSBLKCache()
-
-	cmd := "source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AutoRemoveUnuseDir"
-	if err := command.OnlyExec(cmd); err != nil {
-		logger.Error("Failed to remove unuse dir", zap.Error(err), zap.String("cmd", cmd))
-	}
 }
 
 func NewDiskService(db *gorm.DB) DiskService {

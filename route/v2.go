@@ -10,6 +10,7 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
+	echo_middleware "github.com/labstack/echo/v4/middleware"
 )
 
 var (
@@ -40,6 +41,24 @@ func InitV2Router() http.Handler {
 	localStorage := v2.NewLocalStorage()
 
 	e := echo.New()
+
+	e.Use((echo_middleware.CORSWithConfig(echo_middleware.CORSConfig{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{echo.POST, echo.GET, echo.OPTIONS, echo.PUT, echo.DELETE},
+		AllowHeaders:     []string{echo.HeaderAuthorization, echo.HeaderContentLength, echo.HeaderXCSRFToken, echo.HeaderContentType, echo.HeaderAccessControlAllowOrigin, echo.HeaderAccessControlAllowHeaders, echo.HeaderAccessControlAllowMethods, echo.HeaderConnection, echo.HeaderOrigin, echo.HeaderXRequestedWith},
+		ExposeHeaders:    []string{echo.HeaderContentLength, echo.HeaderAccessControlAllowOrigin, echo.HeaderAccessControlAllowHeaders},
+		MaxAge:           172800,
+		AllowCredentials: true,
+	})))
+
+	e.Use(echo_middleware.Gzip())
+
+	e.Use(echo_middleware.Logger())
+
+	// e.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
+	// 	AuthScheme: "",
+	// 	KeyFunc: ,,
+	// }))
 
 	e.Use(middleware.OapiRequestValidator(_swagger))
 

@@ -1,24 +1,5 @@
 #!/bin/bash
 
-#检查没有使用的挂载点删除文件夹
-AutoRemoveUnuseDir() {
-  DIRECTORY="/DATA/"
-  dir=$(ls -l $DIRECTORY | grep "USB_Storage_sd[a-z][0-9]" | awk '/^d/ {print $NF}')
-  for i in $dir; do
-
-    path="$DIRECTORY$i"
-    mountStr=$(mountpoint "$path")
-    notMountpoint="is not a mountpoint"
-    if [[ $mountStr =~ $notMountpoint ]]; then
-      if [ "$(ls -A "$path")" = "" ]; then
-        rm -fr "$path"
-      else
-        echo "$path is not empty"
-      fi
-    fi
-  done
-}
-
 UDEVILUmount(){
   $sudo_cmd udevil umount -f $1
 }
