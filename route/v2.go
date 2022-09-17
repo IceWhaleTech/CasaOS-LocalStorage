@@ -59,7 +59,6 @@ func InitV2Router() http.Handler {
 	e.Use(echo_middleware.Logger())
 
 	e.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
-		AuthScheme: "",
 		Skipper: func(c echo.Context) bool {
 			return c.RealIP() == "::1" || c.RealIP() == "127.0.0.1"
 		},
