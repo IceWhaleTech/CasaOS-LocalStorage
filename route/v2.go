@@ -3,8 +3,11 @@ package route
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/route/v2"
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -55,14 +58,29 @@ func InitV2Router() http.Handler {
 
 	e.Use(echo_middleware.Logger())
 
-	// e.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
-	// 	AuthScheme: "",
-	// 	KeyFunc: ,,
-	// }))
+	e.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
+		AuthScheme: "",
+		Skipper: func(c echo.Context) bool {
+			return c.RealIP() == "::1" || c.RealIP() == "127.0.0.1"
+		},
+		ParseTokenFunc: func(token string, c echo.Context) (interface{}, error) {
+			claims, code := jwt.Validate(token)
+			if code != common_err.SUCCESS {
+				return nil, echo.ErrUnauthorized
+			}
+
+			c.Request().Header.Set("user_id", strconv.Itoa(claims.ID))
+
+			return claims, nil
+		},
+		TokenLookupFuncs: []echo_middleware.ValuesExtractor{
+			func(c echo.Context) ([]string, error) {
+				return []string{c.Request().Header.Get(echo.HeaderAuthorization)}, nil
+			},
+		},
+	}))
 
 	e.Use(middleware.OapiRequestValidator(_swagger))
-
-	// TODO - add JWT2 here
 
 	codegen.RegisterHandlersWithBaseURL(e, localStorage, V2APIPath)
 
