@@ -85,6 +85,7 @@ paths:
       tags:
         - Mount methods
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -116,6 +117,7 @@ paths:
             type: string
             example: "/"
       requestBody:
+        required: true
         content:
           application/json:
             schema:
