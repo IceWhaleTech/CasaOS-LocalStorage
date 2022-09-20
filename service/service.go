@@ -37,7 +37,7 @@ func NewService(db *gorm.DB) Repository {
 	return &store{
 		usb:          NewUSBService(),
 		disk:         NewDiskService(db),
-		localStorage: v2.NewLocalStorageService(wrapper.NewMountInfo()),
+		localStorage: v2.NewLocalStorageService(db, wrapper.NewMountInfo()),
 		gateway:      gatewayManagement,
 		notify:       notifyService,
 	}

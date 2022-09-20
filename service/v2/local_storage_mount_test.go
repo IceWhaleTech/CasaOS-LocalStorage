@@ -381,7 +381,7 @@ func NewMountInfoMock() wrapper.MountInfoWrapper {
 func TestGetMounts(t *testing.T) {
 	mountInfoMock := NewMountInfoMock()
 
-	localStorageService := NewLocalStorageService(mountInfoMock)
+	localStorageService := NewLocalStorageService(nil, mountInfoMock)
 
 	mounts, err := localStorageService.GetMounts(codegen.GetMountsParams{})
 	if err != nil {
@@ -394,7 +394,7 @@ func TestGetMounts(t *testing.T) {
 func TestGetMountsWithFilter(t *testing.T) {
 	mountInfoMock := NewMountInfoMock()
 
-	localStorageService := NewLocalStorageService(mountInfoMock)
+	localStorageService := NewLocalStorageService(nil, mountInfoMock)
 
 	expectedMount := _allMountInfo[0]
 

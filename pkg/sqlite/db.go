@@ -4,15 +4,29 @@ import (
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
-	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
-	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 )
 
-var _gdb *gorm.DB
+var (
+	_gdb *gorm.DB
+
+	Hooks map[string][]func(interface{})
+)
+
+func init() {
+	for _, v := range []string{
+		"before_create", "after_create",
+		"before_save", "after_save",
+		"before_update", "after_update",
+		"before_delete", "after_delete",
+		"after_find",
+	} {
+		Hooks[v] = make([]func(interface{}), 0)
+	}
+}
 
 func GetDB(dbPath string) *gorm.DB {
 	if _gdb != nil {
@@ -33,8 +47,20 @@ func GetDB(dbPath string) *gorm.DB {
 		panic(err)
 	}
 
-	if err := db.AutoMigrate(&model.SerialDisk{}); err != nil {
-		logger.Error("check or create db error", zap.Error(err))
+	if err := db.AutoMigrate(&model.Merge{}, &model.SerialDisk{}); err != nil {
+		panic(err)
+	}
+
+	if err := db.Callback().Create().Before("gorm:delete").Register("before_delete", func(d *gorm.DB) {
+		if d == nil || d.Statement == nil || d.Statement.Schema == nil || d.Statement.SkipHooks || !d.Statement.Schema.BeforeDelete {
+			return
+		}
+
+		for _, f := range Hooks["before_delete"] {
+			f(d.Statement.Model)
+		}
+	}); err != nil {
+		panic(err)
 	}
 
 	_gdb = db
