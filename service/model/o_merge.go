@@ -5,8 +5,9 @@ import "gorm.io/gorm"
 // Merge
 type Merge struct {
 	gorm.Model
-	Path        string `json:"path"`
-	SerialDisks []SerialDisk `gorm:"many2many:o_merge_disk;"`
+	MountPoint  string        `json:"mount_point" gorm:"uniqueIndex,check:mount_point<>''"`
+	BasePath    *string       `json:"base_path"`
+	SerialDisks []*SerialDisk `gorm:"many2many:o_merge_disk;"`
 }
 
 func (p *Merge) TableName() string {

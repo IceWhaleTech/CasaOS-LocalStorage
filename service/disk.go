@@ -233,8 +233,13 @@ func (d *diskService) MountDisk(path, volume string) error {
 }
 
 func (d *diskService) SaveMountPoint(m model2.SerialDisk) {
-	d.db.Where("uuid = ?", m.UUID).Delete(&model2.SerialDisk{})
-	d.db.Create(&m)
+	var existing model2.SerialDisk
+
+	d.db.Where(&model2.SerialDisk{UUID: m.UUID}).First(&existing)
+
+	m.ID = existing.ID
+
+	d.db.Save(&m)
 }
 
 func (d *diskService) UpdateMountPoint(m model2.SerialDisk) {

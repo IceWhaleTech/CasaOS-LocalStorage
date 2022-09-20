@@ -1,6 +1,8 @@
 package sqlite
 
 import (
+	"context"
+	"path/filepath"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
@@ -10,34 +12,96 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 )
 
+type ContextKey string
+
+const (
+	ContextKeyGlobalDB = ContextKey("gdb")
+
+	HookBeforeCreate = "before_create"
+	HookAfterCreate  = "after_create"
+	HookBeforeSave   = "before_save"
+	HookAfterSave    = "after_save"
+	HookBeforeUpdate = "before_update"
+	HookAfterUpdate  = "after_update"
+	HookBeforeDelete = "before_delete"
+	HookAfterDelete  = "after_delete"
+	HookAfterFind    = "after_find"
+)
+
 var (
 	_gdb *gorm.DB
 
-	Hooks map[string][]func(interface{})
+	Hooks map[string][]func(*gorm.DB, interface{})
 )
 
 func init() {
+	Hooks = make(map[string][]func(*gorm.DB, interface{}))
+
 	for _, v := range []string{
-		"before_create", "after_create",
-		"before_save", "after_save",
-		"before_update", "after_update",
-		"before_delete", "after_delete",
-		"after_find",
+		HookBeforeCreate, HookAfterCreate,
+		HookBeforeSave, HookAfterSave,
+		HookBeforeUpdate, HookAfterUpdate,
+		HookBeforeDelete, HookAfterDelete,
+		HookAfterFind,
 	} {
-		Hooks[v] = make([]func(interface{}), 0)
+		Hooks[v] = make([]func(*gorm.DB, interface{}), 0)
 	}
 }
 
-func GetDB(dbPath string) *gorm.DB {
-	if _gdb != nil {
-		return _gdb
+func registerHook(db *gorm.DB) error {
+	if err := db.Callback().Create().Before("gorm:create").Register(HookBeforeCreate, hookFunc(HookBeforeCreate)); err != nil {
+		return err
 	}
 
-	if err := file.IsNotExistMkDir(dbPath); err != nil {
-		panic(err)
+	if err := db.Callback().Create().After("gorm:create").Register(HookAfterCreate, hookFunc(HookAfterCreate)); err != nil {
+		return err
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbPath+"/local-storage.db"), &gorm.Config{})
+	if err := db.Callback().Update().Before("gorm:save").Register(HookBeforeSave, hookFunc(HookBeforeSave)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Update().After("gorm:save").Register(HookAfterSave, hookFunc(HookAfterSave)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Update().Before("gorm:update").Register(HookBeforeUpdate, hookFunc(HookBeforeUpdate)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Update().After("gorm:update").Register(HookAfterUpdate, hookFunc(HookAfterUpdate)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Delete().Before("gorm:delete").Register(HookBeforeDelete, hookFunc(HookBeforeDelete)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Delete().After("gorm:delete").Register(HookAfterDelete, hookFunc(HookAfterDelete)); err != nil {
+		return err
+	}
+
+	if err := db.Callback().Query().After("gorm:find").Register(HookAfterFind, hookFunc(HookAfterFind)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func hookFunc(name string) func(d *gorm.DB) {
+	return func(d *gorm.DB) {
+		if d == nil || d.Statement == nil || d.Statement.Schema == nil || d.Statement.SkipHooks {
+			return
+		}
+
+		for _, f := range Hooks[name] {
+			f(d, d.Statement.Model)
+		}
+	}
+}
+
+func GetDBByFile(dbFile string) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
 
 	c, _ := db.DB()
 	c.SetMaxIdleConns(10)
@@ -51,19 +115,25 @@ func GetDB(dbPath string) *gorm.DB {
 		panic(err)
 	}
 
-	if err := db.Callback().Create().Before("gorm:delete").Register("before_delete", func(d *gorm.DB) {
-		if d == nil || d.Statement == nil || d.Statement.Schema == nil || d.Statement.SkipHooks || !d.Statement.Schema.BeforeDelete {
-			return
-		}
-
-		for _, f := range Hooks["before_delete"] {
-			f(d.Statement.Model)
-		}
-	}); err != nil {
+	if err := registerHook(db); err != nil {
 		panic(err)
 	}
 
-	_gdb = db
+	ctx := context.WithValue(context.Background(), ContextKeyGlobalDB, db)
+
+	return db.WithContext(ctx)
+}
+
+func GetGlobalDB(dbPath string) *gorm.DB {
+	if _gdb != nil {
+		return _gdb
+	}
+
+	if err := file.IsNotExistMkDir(dbPath); err != nil {
+		panic(err)
+	}
+
+	_gdb = GetDBByFile(filepath.Join(dbPath, "local-storage.db"))
 
 	return _gdb
 }

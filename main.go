@@ -56,7 +56,7 @@ func init() {
 		*dbFlag = config.AppInfo.DBPath
 	}
 
-	sqliteDB := sqlite.GetDB(*dbFlag)
+	sqliteDB := sqlite.GetGlobalDB(*dbFlag)
 
 	service.MyService = service.NewService(sqliteDB)
 
