@@ -9,8 +9,7 @@
  */
 package model
 
-// SerialAdvanced Technology Attachment (STAT)
-type SerialDisk struct {
+type MountPoint struct {
 	ID         uint   `gorm:"column:id;primary_key" json:"id"`
 	UUID       string `json:"uuid"`
 	Path       string `json:"path"`
@@ -19,6 +18,6 @@ type SerialDisk struct {
 	CreatedAt  int64  `json:"created_at"`
 }
 
-func (p *SerialDisk) TableName() string {
+func (p *MountPoint) TableName() string {
 	return "o_disk"
 }

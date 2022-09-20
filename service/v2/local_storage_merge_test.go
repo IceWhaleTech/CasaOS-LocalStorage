@@ -13,27 +13,27 @@ var (
 	_db      *gorm.DB
 	_service *LocalStorageService
 
-	_basePath = "/var/lib/casaos/data"
+	_baseSourcePath = "/var/lib/casaos/data"
 )
 
 func init() {
 	_db = sqlite.GetDBByFile("file::memory:?cache=shared")
 
-	sqlite.Hooks[sqlite.HookAfterDelete] = append(sqlite.Hooks[sqlite.HookAfterDelete], hookAfterDeleteSerialDisk)
+	sqlite.Hooks[sqlite.HookAfterDelete] = append(sqlite.Hooks[sqlite.HookAfterDelete], hookAfterDeleteMountPoint)
 
 	_service = NewLocalStorageService(_db, nil)
 }
 
 func TestHookAfterDeleteSerialDisk(t *testing.T) {
 	// create two serial disks in db
-	expectedDisk1 := model2.SerialDisk{
+	expectedDisk1 := model2.MountPoint{
 		UUID:       "85022acb-b5a2-424e-bfa9-6acb67d17cb8",
 		Path:       "/dev/sda",
 		State:      0,
 		MountPoint: "/mnt/sda",
 	}
 
-	expectedDisk2 := model2.SerialDisk{
+	expectedDisk2 := model2.MountPoint{
 		UUID:       "36c94c85-debf-49b6-9f19-866c14b3a0c6",
 		Path:       "/dev/sdb",
 		State:      0,
@@ -47,8 +47,8 @@ func TestHookAfterDeleteSerialDisk(t *testing.T) {
 
 	expectedMerge := model2.Merge{
 		MountPoint: "/mnt/merge",
-		BasePath:   &_basePath,
-		SerialDisks: []*model2.SerialDisk{
+		SourcePath: &_baseSourcePath,
+		SourceMountPoints: []*model2.MountPoint{
 			&expectedDisk1,
 			&expectedDisk2,
 		},
@@ -58,14 +58,14 @@ func TestHookAfterDeleteSerialDisk(t *testing.T) {
 
 	// verify the merge is associated with two serial disks
 	var actualMerges []model2.Merge
-	if err := _db.Preload("SerialDisks").Find(&actualMerges).Error; err != nil {
+	if err := _db.Preload("SourceMountPoints").Find(&actualMerges).Error; err != nil {
 		t.Error(err)
 	}
 
 	assert.Equal(t, len(actualMerges), 1)
 
 	actualMerge := actualMerges[0]
-	assert.Equal(t, len(actualMerge.SerialDisks), 2)
+	assert.Equal(t, len(actualMerge.SourceMountPoints), 2)
 
 	assert.DeepEqual(t, actualMerge, expectedMerge)
 
@@ -75,16 +75,16 @@ func TestHookAfterDeleteSerialDisk(t *testing.T) {
 	}
 
 	// check if the merge is updated
-	if err := _db.Preload("SerialDisks").Find(&actualMerges).Error; err != nil {
+	if err := _db.Preload("SourceMountPoints").Find(&actualMerges).Error; err != nil {
 		t.Error(err)
 	}
 
 	assert.Equal(t, len(actualMerges), 1)
 
 	actualMerge = actualMerges[0]
-	assert.Equal(t, len(actualMerge.SerialDisks), 1)
+	assert.Equal(t, len(actualMerge.SourceMountPoints), 1)
 
-	assert.DeepEqual(t, *actualMerge.SerialDisks[0], expectedDisk2)
+	assert.DeepEqual(t, *actualMerge.SourceMountPoints[0], expectedDisk2)
 
 	// delete the other serial disk
 	if err := _db.Delete(&expectedDisk2).Error; err != nil {
@@ -92,12 +92,12 @@ func TestHookAfterDeleteSerialDisk(t *testing.T) {
 	}
 
 	// check if the merge is updated
-	if err := _db.Preload("SerialDisks").Find(&actualMerges).Error; err != nil {
+	if err := _db.Preload("SourceMountPoints").Find(&actualMerges).Error; err != nil {
 		t.Error(err)
 	}
 
 	assert.Equal(t, len(actualMerges), 1)
 
 	actualMerge = actualMerges[0]
-	assert.Equal(t, len(actualMerge.SerialDisks), 0)
+	assert.Equal(t, len(actualMerge.SourceMountPoints), 0)
 }

@@ -17,6 +17,7 @@ type ContextKey string
 const (
 	ContextKeyGlobalDB = ContextKey("gdb")
 
+	// GORM's lifecyle
 	HookBeforeCreate = "before_create"
 	HookAfterCreate  = "after_create"
 	HookBeforeSave   = "before_save"
@@ -31,6 +32,9 @@ const (
 var (
 	_gdb *gorm.DB
 
+	// A map of hook to callbacks per GORM’s lifecycle.
+	// This allows additional logic to happen when a row is created, updated, deleted, or queried from the database, without changing original model structure or logic.
+	// Otherwise we will have to add migration logic from version to version.
 	Hooks map[string][]func(*gorm.DB, interface{})
 )
 
@@ -48,7 +52,8 @@ func init() {
 	}
 }
 
-func registerHook(db *gorm.DB) error {
+// Initialize each hook to call each registered callback function when the hook is triggered
+func initializeHooks(db *gorm.DB) error {
 	if err := db.Callback().Create().Before("gorm:create").Register(HookBeforeCreate, hookFunc(HookBeforeCreate)); err != nil {
 		return err
 	}
@@ -88,6 +93,7 @@ func registerHook(db *gorm.DB) error {
 	return nil
 }
 
+// Make sure each hook calls each registered callback function per hook name
 func hookFunc(name string) func(d *gorm.DB) {
 	return func(d *gorm.DB) {
 		if d == nil || d.Statement == nil || d.Statement.Schema == nil || d.Statement.SkipHooks {
@@ -111,11 +117,11 @@ func GetDBByFile(dbFile string) *gorm.DB {
 		panic(err)
 	}
 
-	if err := db.AutoMigrate(&model.Merge{}, &model.SerialDisk{}); err != nil {
+	if err := db.AutoMigrate(&model.Merge{}, &model.MountPoint{}); err != nil {
 		panic(err)
 	}
 
-	if err := registerHook(db); err != nil {
+	if err := initializeHooks(db); err != nil {
 		panic(err)
 	}
 

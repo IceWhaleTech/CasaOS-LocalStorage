@@ -8,33 +8,35 @@ import (
 )
 
 func init() {
-	sqlite.Hooks[sqlite.HookAfterDelete] = append(sqlite.Hooks[sqlite.HookAfterDelete], hookAfterDeleteSerialDisk)
+	// register the callback function to be called after a serial disk is deleted from database each time
+	sqlite.Hooks[sqlite.HookAfterDelete] = append(sqlite.Hooks[sqlite.HookAfterDelete], hookAfterDeleteMountPoint)
 }
 
-func hookAfterDeleteSerialDisk(db *gorm.DB, model interface{}) {
-	if d, ok := model.(*model2.SerialDisk); ok {
+// Make sure the serial disk is removed from the merge list when it is deleted from database, to keep the database consistent.
+func hookAfterDeleteMountPoint(db *gorm.DB, model interface{}) {
+	if d, ok := model.(*model2.MountPoint); ok {
 		gdb := db.Statement.Context.Value(sqlite.ContextKeyGlobalDB)
 		if gdb, ok := gdb.(*gorm.DB); ok {
 
 			var merges []model2.Merge
 
-			if err := gdb.Model(&model2.Merge{}).Preload("SerialDisks").Find(&merges).Error; err != nil {
+			if err := gdb.Model(&model2.Merge{}).Preload("SourceMountPoints").Find(&merges).Error; err != nil {
 				panic(err)
 			}
 
 			for i := range merges {
-				updatedSerialDisks := make([]*model2.SerialDisk, 0)
-				for _, serialDisk := range merges[i].SerialDisks {
+				updatedMountPoints := make([]*model2.MountPoint, 0)
+				for _, serialDisk := range merges[i].SourceMountPoints {
 					if serialDisk.ID != d.ID {
-						updatedSerialDisks = append(updatedSerialDisks, serialDisk)
+						updatedMountPoints = append(updatedMountPoints, serialDisk)
 					}
 				}
 
-				if err := gdb.Model(&merges[i]).Association("SerialDisks").Error; err != nil {
+				if err := gdb.Model(&merges[i]).Association("SourceMountPoints").Error; err != nil {
 					panic(err)
 				}
 
-				if err := gdb.Model(&merges[i]).Association("SerialDisks").Replace(updatedSerialDisks); err != nil {
+				if err := gdb.Model(&merges[i]).Association("SourceMountPoints").Replace(updatedMountPoints); err != nil {
 					panic(err)
 				}
 			}
