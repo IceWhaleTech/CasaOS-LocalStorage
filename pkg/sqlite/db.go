@@ -117,7 +117,7 @@ func GetDBByFile(dbFile string) *gorm.DB {
 		panic(err)
 	}
 
-	if err := db.AutoMigrate(&model.Merge{}, &model.Mount{}); err != nil {
+	if err := db.AutoMigrate(&model.Merge{}, &model.Volume{}); err != nil {
 		panic(err)
 	}
 

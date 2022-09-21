@@ -301,6 +301,15 @@ components:
       required:
         - mount_point
       properties:
+        id:
+          type: integer
+          readOnly: true
+        fstype:
+          type: string
+          default: "fuse.mergerfs"
         mount_point:
           type: string
           example: "/DATA"
+        source_base_path:
+          type: string
+          example: "/var/lib/casaos/files"

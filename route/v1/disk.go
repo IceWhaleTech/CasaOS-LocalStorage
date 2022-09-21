@@ -446,7 +446,7 @@ func PostDiskAddPartition(c *gin.Context) {
 		// 		return
 		// 	}
 		// }
-		m := model2.Mount{}
+		m := model2.Volume{}
 		m.MountPoint = mountPath
 		m.Path = currentDisk.Children[i].Path
 		m.UUID = currentDisk.Children[i].UUID

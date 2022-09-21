@@ -31,15 +31,15 @@ type DiskService interface {
 	GetDiskInfo(path string) model.LSBLKModel
 	GetDiskInfoByPath(path string) *disk.UsageStat
 	GetPlugInDisk() ([]string, error)
-	GetSerialAll() []model2.Mount
+	GetSerialAll() []model2.Volume
 	LSBLK(isUseCache bool) []model.LSBLKModel
 	MountDisk(path, volume string) error
 	RemoveLSBLKCache()
-	SaveMountPoint(m model2.Mount)
+	SaveMountPoint(m model2.Volume)
 	SmartCTL(path string) model.SmartctlA
 	UmountPointAndRemoveDir(path string) ([]string, error)
 	UmountUSB(path string) error
-	UpdateMountPoint(m model2.Mount)
+	UpdateMountPoint(m model2.Volume)
 }
 type diskService struct {
 	db *gorm.DB
@@ -232,32 +232,32 @@ func (d *diskService) MountDisk(path, volume string) error {
 	return nil
 }
 
-func (d *diskService) SaveMountPoint(m model2.Mount) {
-	var existing model2.Mount
+func (d *diskService) SaveMountPoint(m model2.Volume) {
+	var existing model2.Volume
 
-	d.db.Where(&model2.Mount{UUID: m.UUID}).First(&existing)
+	d.db.Where(&model2.Volume{UUID: m.UUID}).First(&existing)
 
 	m.ID = existing.ID
 
 	d.db.Save(&m)
 }
 
-func (d *diskService) UpdateMountPoint(m model2.Mount) {
-	d.db.Model(&model2.Mount{}).Where("uui = ?", m.UUID).Update("mount_point", m.MountPoint)
+func (d *diskService) UpdateMountPoint(m model2.Volume) {
+	d.db.Model(&model2.Volume{}).Where("uui = ?", m.UUID).Update("mount_point", m.MountPoint)
 }
 
 func (d *diskService) DeleteMount(id string) {
-	d.db.Delete(&model2.Mount{}).Where("id = ?", id)
+	d.db.Delete(&model2.Volume{}).Where("id = ?", id)
 }
 
 func (d *diskService) DeleteMountPoint(path, mountPoint string) {
-	d.db.Where("path = ? AND mount_point = ?", path, mountPoint).Delete(&model2.Mount{})
+	d.db.Where("path = ? AND mount_point = ?", path, mountPoint).Delete(&model2.Volume{})
 
 	command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
 }
 
-func (d *diskService) GetSerialAll() []model2.Mount {
-	var m []model2.Mount
+func (d *diskService) GetSerialAll() []model2.Volume {
+	var m []model2.Volume
 	d.db.Find(&m)
 	return m
 }
@@ -300,7 +300,7 @@ func (d *diskService) CheckSerialDiskMount() {
 					}
 
 					if volume != m {
-						ms := model2.Mount{}
+						ms := model2.Volume{}
 						ms.UUID = v.UUID
 						ms.MountPoint = volume
 						d.UpdateMountPoint(ms)
