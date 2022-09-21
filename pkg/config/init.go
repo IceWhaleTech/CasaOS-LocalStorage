@@ -20,7 +20,8 @@ var (
 	}
 
 	ServerInfo = &model.ServerModel{
-		USBAutoMount: "False",
+		USBAutoMount:   "False",
+		EnableMergerFS: "False",
 	}
 )
 

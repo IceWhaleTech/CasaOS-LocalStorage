@@ -10,3 +10,4 @@ ShellPath=/usr/share/casaos/shell
 
 [server]
 USBAutoMount=
+EnableMergerFS=False

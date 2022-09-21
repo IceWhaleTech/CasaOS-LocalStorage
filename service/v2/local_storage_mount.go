@@ -105,6 +105,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	if len(results) > 1 {
+		logger.Error("More than one mount with same mount point and fstype found", zap.Any("mounts", results))
 	}
 
 	results[0] = *fs.PostMountAll(results[0])

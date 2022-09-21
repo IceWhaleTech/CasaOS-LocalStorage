@@ -3,7 +3,6 @@ package fs
 import (
 	"strings"
 
-	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 )
 
@@ -35,23 +34,14 @@ func (f *mergerFS) GetFSTypeFull() string {
 	return MergerFSFullName
 }
 
-func (f *mergerFS) GetDefaultOptions() string {
-	return MergerFSDefaultOptions
-}
-
 func (f *mergerFS) PreMount(m codegen.Mount) *codegen.Mount {
 	if *m.Fstype != MergerFSFullName && *m.Fstype != MergerFS {
 		return &m
 	}
 
-	defaultSource := constants.DefaultFilePath
-
-	if m.Source == nil {
-		m.Source = &defaultSource
-	}
-
 	mNew := m
 
+	mNew = updateOptions(mNew, MergerFSDefaultOptions)
 	mNew = updateFSType(mNew)
 	mNew = updateFSName(mNew)
 
@@ -74,6 +64,14 @@ func (f *mergerFS) Extend(m codegen.Mount) *codegen.Mount {
 	return &mNew
 }
 
+func updateOptions(m codegen.Mount, options string) codegen.Mount {
+	if m.Options == nil || *m.Options == "" {
+		m.Options = &options
+	}
+
+	return m
+}
+
 func updateFSType(m codegen.Mount) codegen.Mount {
 	if *m.Fstype == MergerFS {
 		f := MergerFSFullName
@@ -84,11 +82,16 @@ func updateFSType(m codegen.Mount) codegen.Mount {
 }
 
 func updateFSName(m codegen.Mount) codegen.Mount {
-	if strings.Contains(strings.ToLower(*m.Options), "fsname=") {
-		return m
+	options := ""
+
+	if m.Options != nil {
+		if strings.Contains(strings.ToLower(*m.Options), "fsname=") {
+			return m
+		}
+		options = *m.Options
 	}
 
-	optionNew := strings.TrimLeft(*m.Options+",fsname="+*m.Source, ",")
+	optionNew := strings.TrimLeft(options+",fsname="+*m.Source, ",")
 
 	m.Options = &optionNew
 

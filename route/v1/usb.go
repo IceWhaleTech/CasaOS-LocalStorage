@@ -2,6 +2,7 @@ package v1
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
@@ -73,7 +74,7 @@ func PutSystemUSBAutoMount(c *gin.Context) {
 // @Router /sys/usb [get]
 func GetSystemUSBAutoMount(c *gin.Context) {
 	state := "True"
-	if config.ServerInfo.USBAutoMount == "False" {
+	if strings.ToLower(config.ServerInfo.USBAutoMount) != "true" {
 		state = "False"
 	}
 	go func() {

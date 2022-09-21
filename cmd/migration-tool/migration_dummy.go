@@ -79,7 +79,7 @@ func checkToken2_11() {
 		panic(err)
 	}
 
-	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && config.ServerInfo.USBAutoMount != "True" && strings.Contains(deviceTree, "Raspberry Pi") {
+	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && strings.ToLower(config.ServerInfo.USBAutoMount) != "true" && strings.Contains(deviceTree, "Raspberry Pi") {
 		service.MyService.USB().UpdateUSBAutoMount("False")
 		service.MyService.USB().ExecUSBAutoMountShell("False")
 	}

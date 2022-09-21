@@ -3,14 +3,15 @@ package v2
 import (
 	"errors"
 	"os"
+	"strings"
 
-	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
+	"github.com/IceWhaleTech/CasaOS-Common/utils"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mergerfs"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -66,21 +67,29 @@ func (s *LocalStorageService) GetMergeAll() ([]model2.Merge, error) {
 	return merges, nil
 }
 
-func (s *LocalStorageService) CreateMerge(mountPoint string) error {
-	// check if a merge of mouthPoint already exists in database
-	var merge model2.Merge
-	if result := s._db.Where("mount_point = ?", mountPoint).First(&merge); result.Error != nil {
+func (s *LocalStorageService) CreateMerge(merge *model2.Merge) error {
+	// check if a existingMerge of mouthPoint already exists in database
+	var existingMerge model2.Merge
+	if result := s._db.Where("mount_point = ?", merge.MountPoint).Limit(1).Find(&existingMerge); result.Error != nil {
 		return result.Error
 	} else if result.RowsAffected > 0 {
 		return ErrMergeMountPointAlreadyExists
 	}
 
-	// if not, create a new merge mount
-	fstype := fs.MergerFS
-	source := constants.DefaultFilePath
-	mount, err := s.Mount(codegen.Mount{
-		MountPoint: mountPoint,
-		Fstype:     &fstype,
+	// create source path if it does not exists
+	if err := file.IsNotExistMkDir(*merge.SourceBasePath); err != nil {
+		return err
+	}
+
+	source := *merge.SourceBasePath
+	for _, mount := range merge.SourceMounts {
+		source = source + ":" + mount.MountPoint
+	}
+
+	// create a new merge mount
+	_, err := s.Mount(codegen.Mount{
+		MountPoint: merge.MountPoint,
+		Fstype:     &merge.FSType,
 		Source:     &source,
 	})
 	if err != nil {
@@ -88,10 +97,6 @@ func (s *LocalStorageService) CreateMerge(mountPoint string) error {
 	}
 
 	// then persist to database
-	merge = model2.Merge{
-		MountPoint: mount.MountPoint,
-	}
-
 	if err := s._db.Create(&merge).Error; err != nil {
 		return err
 	}
@@ -116,19 +121,28 @@ func (s *LocalStorageService) UpdateMerge(mountPoint string, mounts []*model2.Mo
 		return err
 	}
 
-	// check if the mount point is a mergerfs mount
-	if _, err := mergerfs.ListValues(mountPoint); err != nil {
-		return err
-	}
-
 	// update the merge mount point
-	sources := make([]string, 0)
+	sources := []string{*merge.SourceBasePath}
 	for _, mount := range mounts {
 		sources = append(sources, mount.MountPoint)
 	}
 
-	if err := mergerfs.SetSource(mountPoint, sources); err != nil {
-		return err
+	// check if the mount point is a mergerfs mount
+	if _, err := mergerfs.ListValues(mountPoint); err != nil {
+		// try to mount it if it is not a mergerfs mount
+		source := strings.Join(sources, ":")
+		if _, err := s.Mount(codegen.Mount{
+			MountPoint: merge.MountPoint,
+			Fstype:     &merge.FSType,
+			Source:     &source,
+		}); err != nil {
+			return err
+		}
+	} else {
+		// otherwise, update the mergerfs sources
+		if err := mergerfs.SetSource(mountPoint, sources); err != nil {
+			return err
+		}
 	}
 
 	// then persist to database
@@ -152,19 +166,18 @@ func (s *LocalStorageService) CheckMergeMount() {
 		return
 	}
 
-	fstype := fs.MergerFS
-	source := constants.DefaultFilePath
-
 	codegenMounts, err := s.GetMounts(codegen.GetMountsParams{})
 	if err != nil {
 		logger.Error("Failed to get mount list from system", zap.Error(err))
+		return
 	}
 
-	for _, merge := range mergeList {
+	for i := range mergeList {
 		mountNeeded := true
 		for _, codegenMount := range codegenMounts {
-			if codegenMount.MountPoint == merge.MountPoint {
-				if *codegenMount.Fstype == fstype {
+			if codegenMount.MountPoint == mergeList[i].MountPoint {
+				if *codegenMount.Fstype == mergeList[i].FSType {
+					logger.Info("Merge already exists - mount not needed", zap.Any("merge", mergeList[i]))
 					mountNeeded = false
 					break
 				}
@@ -173,17 +186,33 @@ func (s *LocalStorageService) CheckMergeMount() {
 		}
 
 		if mountNeeded {
-			if _, err := s.Mount(codegen.Mount{
-				MountPoint: merge.MountPoint,
-				Fstype:     &fstype,
-				Source:     &source,
-			}); err != nil {
-				logger.Error("Failed to mount merge", zap.Any("merge", merge), zap.Error(err))
+			logger.Info("Merge not found - mount needed", zap.Any("merge", mergeList[i]))
+			if err := s.UpdateMerge(mergeList[i].MountPoint, mergeList[i].SourceMounts); err != nil {
+				logger.Error("Failed to create merge", zap.Error(err))
 			}
+			continue
 		}
 
-		if err := s.UpdateMerge(merge.MountPoint, merge.SourceMounts); err != nil {
-			logger.Error("Failed to set merge sources", zap.Any("merge", merge), zap.Error(err))
+		currentSourceList, err := mergerfs.GetSource(mergeList[i].MountPoint)
+		if err != nil {
+			logger.Error("Failed to get current source list", zap.Error(err), zap.Any("merge", mergeList[i]))
+			continue
+		}
+
+		expectSourceList := []string{*mergeList[i].SourceBasePath}
+		for _, mount := range mergeList[i].SourceMounts {
+			expectSourceList = append(expectSourceList, mount.MountPoint)
+		}
+
+		if !utils.CompareStringSlices(currentSourceList, expectSourceList) {
+
+			logger.Info("Merge source list not match - update needed",
+				zap.String("currentSourceList", strings.Join(currentSourceList, ",")),
+				zap.String("expectSourceList", strings.Join(expectSourceList, ",")))
+
+			if err := s.UpdateMerge(mergeList[i].MountPoint, mergeList[i].SourceMounts); err != nil {
+				logger.Error("Failed to set merge sources", zap.Any("merge", mergeList[i]), zap.Error(err))
+			}
 		}
 	}
 }

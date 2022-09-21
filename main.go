@@ -4,13 +4,16 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
@@ -20,6 +23,9 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
+	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron"
 	"go.uber.org/zap"
@@ -63,7 +69,25 @@ func init() {
 	service.Cache = cache.Init()
 
 	service.MyService.Disk().CheckSerialDiskMount()
-	service.MyService.LocalStorage().CheckMergeMount()
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		sourceBasePath := constants.DefaultFilePath
+
+		merge := model2.Merge{
+			FSType:         fs.MergerFSFullName,
+			MountPoint:     "/DATA",
+			SourceBasePath: &sourceBasePath,
+		}
+		if err := service.MyService.LocalStorage().CreateMerge(&merge); err != nil {
+			if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) || errors.Is(err, v2.ErrAlreadyMounted) {
+				logger.Info(err.Error(), zap.String("path", "/DATA"))
+			} else {
+				panic(err)
+			}
+		}
+
+		service.MyService.LocalStorage().CheckMergeMount()
+	}
 }
 
 func main() {

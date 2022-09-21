@@ -47,6 +47,15 @@ func SetSource(ctrlfile string, sources []string) error {
 	return syscall.Setxattr(ctrlfile, key, value, 0)
 }
 
+func GetSource(ctrlfile string) ([]string, error) {
+	values, err := ListValues(ctrlfile)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(values["user.mergerfs.srcmounts"], ":"), nil
+}
+
 func AddSource(ctrlfile string, source string) error {
 	key := "user.mergerfs.srcmounts"
 	value := []byte("+" + source)

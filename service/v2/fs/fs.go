@@ -5,7 +5,6 @@ import "github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 type Extension interface {
 	GetFSType() string
 	GetFSTypeFull() string
-	GetDefaultOptions() string
 
 	PreMount(m codegen.Mount) *codegen.Mount
 	PostMount(m codegen.Mount) *codegen.Mount
