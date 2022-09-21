@@ -8,7 +8,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/moby/sys/mountinfo"
@@ -132,30 +131,6 @@ func (s *LocalStorageService) Umount(mountpoint string) error {
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
 		logger.Error(string(buf), zap.Error(err), zap.Any("mountpoint", mountpoint))
-		return err
-	}
-	return nil
-}
-
-func (s *LocalStorageService) SaveToFStab(m codegen.Mount) error {
-	if err := s._fstab.Add(fstab.Entry{
-		MountPoint: m.MountPoint,
-
-		Source:  *m.Source,
-		FSType:  *m.Fstype,
-		Options: *m.Options,
-		Dump:    0,
-		Pass:    fstab.PassDoNotCheck,
-	}, true); err != nil {
-		logger.Error("Error when trying to persist mount", zap.Error(err), zap.Any("mount", m))
-		return err
-	}
-	return nil
-}
-
-func (s *LocalStorageService) RemoveFromFStab(mountpoint string) error {
-	if err := s._fstab.RemoveByMountPoint(mountpoint, false); err != nil {
-		logger.Error("Error when trying to unpersist mount", zap.Error(err), zap.Any("mountpoint", mountpoint))
 		return err
 	}
 	return nil

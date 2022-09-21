@@ -3,12 +3,17 @@ package fs
 import (
 	"strings"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 )
 
 const (
-	fsType     = "mergerfs"
-	fsTypeFull = "fuse.mergerfs"
+	MergerFS               = "mergerfs"
+	MergerFSFullName       = "fuse.mergerfs"
+	MergerFSDefaultOptions = "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
+
+	MergerFSExtendedKeySource = "mergerfs.src" // corresponding value could be for example: /var/lib/casaos/files
+
 )
 
 type mergerFS struct{}
@@ -18,12 +23,31 @@ func init() {
 		ExtensionMap = make(map[string]Extension)
 	}
 
-	ExtensionMap[fsType] = &mergerFS{}
+	// register itself to ExtensionMap
+	ExtensionMap[MergerFS] = &mergerFS{}
+}
+
+func (f *mergerFS) GetFSType() string {
+	return MergerFS
+}
+
+func (f *mergerFS) GetFSTypeFull() string {
+	return MergerFSFullName
+}
+
+func (f *mergerFS) GetDefaultOptions() string {
+	return MergerFSDefaultOptions
 }
 
 func (f *mergerFS) PreMount(m codegen.Mount) *codegen.Mount {
-	if *m.Fstype != fsTypeFull && *m.Fstype != fsType {
+	if *m.Fstype != MergerFSFullName && *m.Fstype != MergerFS {
 		return &m
+	}
+
+	defaultSource := constants.DefaultFilePath
+
+	if m.Source == nil {
+		m.Source = &defaultSource
 	}
 
 	mNew := m
@@ -39,7 +63,7 @@ func (f *mergerFS) PostMount(m codegen.Mount) *codegen.Mount {
 }
 
 func (f *mergerFS) Extend(m codegen.Mount) *codegen.Mount {
-	if *m.Fstype != fsTypeFull && *m.Fstype != fsType {
+	if *m.Fstype != MergerFSFullName && *m.Fstype != MergerFS {
 		return &m
 	}
 
@@ -51,8 +75,8 @@ func (f *mergerFS) Extend(m codegen.Mount) *codegen.Mount {
 }
 
 func updateFSType(m codegen.Mount) codegen.Mount {
-	if *m.Fstype == fsType {
-		f := fsTypeFull
+	if *m.Fstype == MergerFS {
+		f := MergerFSFullName
 		m.Fstype = &f
 	}
 
@@ -80,7 +104,7 @@ func updateExtended(m codegen.Mount) codegen.Mount {
 		m.Extended.AdditionalProperties = make(map[string]string)
 	}
 
-	m.Extended.AdditionalProperties["mergerfs.srcmounts"] = *m.Source
+	m.Extended.AdditionalProperties[MergerFSExtendedKeySource] = *m.Source
 
 	return m
 }

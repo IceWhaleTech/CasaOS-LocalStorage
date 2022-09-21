@@ -9,7 +9,7 @@
  */
 package model
 
-type MountPoint struct {
+type Mount struct {
 	ID         uint   `gorm:"column:id;primary_key" json:"id"`
 	UUID       string `json:"uuid"`
 	Path       string `json:"path"`
@@ -18,6 +18,6 @@ type MountPoint struct {
 	CreatedAt  int64  `json:"created_at"`
 }
 
-func (p *MountPoint) TableName() string {
+func (p *Mount) TableName() string {
 	return "o_disk"
 }

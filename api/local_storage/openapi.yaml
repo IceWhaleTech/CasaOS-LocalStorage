@@ -11,7 +11,7 @@ info:
     </picture>
 
     CasaOS Local Storage service manages local storage including disks, partitions and mounting points.
-    
+
     This API allows interacting with the service to conduct such management.
 
     For issues and discussions, please visit the [GitHub repository](https://github.com/IceWhaleTech/CasaOS) or join [our Discord](https://discord.gg/knqAbbBbeX).
@@ -34,6 +34,9 @@ x-tagGroups:
   - name: Schemas
     tags:
       - Mount
+
+security:
+  - access_token: []
 
 paths:
   /mount:
@@ -74,8 +77,8 @@ paths:
             type: string
             example: "/dev/sda1"
       responses:
-        '200':
-          $ref: '#/components/responses/GetMountsResponseOK'
+        "200":
+          $ref: "#/components/responses/GetMountsResponseOK"
 
     post:
       summary: Mount a volume
@@ -89,16 +92,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Mount'
+              $ref: "#/components/schemas/Mount"
       responses:
-        '200':
-          $ref: '#/components/responses/AddMountResponseOK'
-        '400':
-          $ref: '#/components/responses/ResponseBadRequest'
-        '403':
-          $ref: '#/components/responses/ResponseForbidden'
-        '409':
-          $ref: '#/components/responses/ResponseConflict'
+        "200":
+          $ref: "#/components/responses/AddMountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
 
     put:
       summary: Update a mount volume
@@ -121,18 +124,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Mount'
+              $ref: "#/components/schemas/Mount"
       responses:
-        '200':
-          $ref: '#/components/responses/UpdateMountResponseOK'
-        '400':
-          $ref: '#/components/responses/ResponseBadRequest'
-        '403':
-          $ref: '#/components/responses/ResponseForbidden'
-        '404':
-          $ref: '#/components/responses/ResponseNotFound'
-        '409':
-          $ref: '#/components/responses/ResponseConflict'
+        "200":
+          $ref: "#/components/responses/UpdateMountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "404":
+          $ref: "#/components/responses/ResponseNotFound"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
 
     delete:
       summary: Umount volume
@@ -150,42 +153,39 @@ paths:
           schema:
             type: string
             example: "/DATA"
-        - name: persist
-          in: query
-          description: |-
-            `true` if the mount should be removed from `/etc/fstab`, `false` otherwise
-          schema:
-            type: boolean
-            default: true
       responses:
-        '200':
-          $ref: '#/components/responses/UmountResponseOK'
-        '400':
-          $ref: '#/components/responses/ResponseBadRequest'
-        '403':
-          $ref: '#/components/responses/ResponseForbidden'
-        '404':
-          $ref: '#/components/responses/ResponseNotFound'
-        '409':
-          $ref: '#/components/responses/ResponseConflict'
+        "200":
+          $ref: "#/components/responses/UmountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "404":
+          $ref: "#/components/responses/ResponseNotFound"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
 
 components:
+  securitySchemes:
+    access_token:
+      type: apiKey
+      in: header
+      name: Authorization
 
   responses:
-
     GetMountsResponseOK:
       description: OK
       content:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
               - type: object
                 properties:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Mount'
+                      $ref: "#/components/schemas/Mount"
 
     AddMountResponseOK:
       description: OK
@@ -193,11 +193,11 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
               - type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/Mount'
+                    $ref: "#/components/schemas/Mount"
 
     UpdateMountResponseOK:
       description: OK
@@ -205,18 +205,18 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
               - type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/Mount'
+                    $ref: "#/components/schemas/Mount"
 
     UmountResponseOK:
       description: OK
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/BaseResponse'
+            $ref: "#/components/schemas/BaseResponse"
 
     ResponseBadRequest:
       description: Bad Request
@@ -224,7 +224,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
           example:
             message: "Bad Request"
 
@@ -234,7 +234,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
           example:
             message: "Not Found"
 
@@ -244,7 +244,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
           example:
             message: "Forbidden"
 
@@ -254,12 +254,11 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/BaseResponse'
+              - $ref: "#/components/schemas/BaseResponse"
           example:
             message: "Conflict"
 
   schemas:
-
     BaseResponse:
       properties:
         message:
@@ -288,11 +287,6 @@ components:
         options:
           type: string
           example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
-        persist:
-          type: boolean
-          description: |-
-            `true` if the mount should be persisted in `/etc/fstab`, `false` otherwise
-          default: false
         extended:
           type: object
           description: |-
@@ -301,3 +295,12 @@ components:
             type: string
           example:
             "mergerfs.srcmounts": "/mnt/a:/mnt/b"
+
+    Merge:
+      type: object
+      required:
+        - mount_point
+      properties:
+        mount_point:
+          type: string
+          example: "/DATA"

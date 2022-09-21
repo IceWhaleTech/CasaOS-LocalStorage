@@ -18,6 +18,8 @@ const (
 )
 
 var (
+	_fstab *FStab
+
 	ErrInvalidFSTabEntry                     = errors.New("invalid fstab entry")
 	ErrDifferentFSTabEntryWithSameMountPoint = errors.New("a different fstab entry with the same mount point already exists")
 )
@@ -155,10 +157,14 @@ func (f *FStab) GetEntryByMountPoint(mountpoint string) (*Entry, error) {
 	return nil, nil
 }
 
-func New() *FStab {
-	return &FStab{
-		path: DefaultPath,
+func Get() *FStab {
+	if _fstab == nil {
+		_fstab = &FStab{
+			path: DefaultPath,
+		}
 	}
+
+	return _fstab
 }
 
 func parseEntry(line string) (*Entry, error) {
