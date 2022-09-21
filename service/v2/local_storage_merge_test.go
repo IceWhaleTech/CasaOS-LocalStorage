@@ -12,8 +12,6 @@ import (
 var (
 	_db      *gorm.DB
 	_service *LocalStorageService
-
-	_baseSourcePath = "/var/lib/casaos/data" // TODO
 )
 
 func init() {
