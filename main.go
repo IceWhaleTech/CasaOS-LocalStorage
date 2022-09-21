@@ -63,6 +63,7 @@ func init() {
 	service.Cache = cache.Init()
 
 	service.MyService.Disk().CheckSerialDiskMount()
+	service.MyService.LocalStorage().CheckMergeMount()
 }
 
 func main() {

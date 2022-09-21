@@ -50,13 +50,6 @@ func (s *LocalStorage) Mount(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
-	if request.Persist != nil && *request.Persist {
-		if err := service.MyService.LocalStorage().SaveToFStab(request); err != nil {
-			message := err.Error()
-			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-		}
-	}
-
 	return ctx.JSON(http.StatusOK, codegen.AddMountResponseOK{Data: mount})
 }
 
@@ -69,13 +62,6 @@ func (s *LocalStorage) Umount(ctx echo.Context, params codegen.UmountParams) err
 		}
 
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-	}
-
-	if params.Persist != nil && *params.Persist {
-		if err := service.MyService.LocalStorage().RemoveFromFStab(params.MountPoint); err != nil {
-			message := err.Error()
-			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-		}
 	}
 
 	return ctx.JSON(http.StatusOK, codegen.UmountResponseOK{})
@@ -105,13 +91,6 @@ func (s *LocalStorage) UpdateMount(ctx echo.Context, params codegen.UpdateMountP
 		}
 
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-	}
-
-	if request.Persist != nil && *request.Persist {
-		if err := service.MyService.LocalStorage().SaveToFStab(request); err != nil {
-			message := err.Error()
-			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-		}
 	}
 
 	return ctx.JSON(http.StatusOK, codegen.AddMountResponseOK{Data: mount})
