@@ -22,7 +22,7 @@ import (
 )
 
 type DiskService interface {
-	AddPartition(path string) string
+	AddPartition(path string) (string, error)
 	CheckSerialDiskMount()
 	DeleteMount(id string)
 	DeleteMountPoint(path, mountPoint string)
@@ -107,9 +107,9 @@ func (d *diskService) DelPartition(path, num string) ([]string, error) {
 }
 
 // part
-func (d *diskService) AddPartition(path string) string {
-	command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
-	return ""
+func (d *diskService) AddPartition(path string) (string, error) {
+	output, err := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
+	return strings.Join(output, "\n"), err
 }
 
 func (d *diskService) AddAllPartition(path string) {

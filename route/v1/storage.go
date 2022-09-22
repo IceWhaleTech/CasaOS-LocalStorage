@@ -30,78 +30,84 @@ func GetStorageList(c *gin.Context) {
 	children := 1
 	findSystem := 0
 	for _, d := range disks {
-		if d.Tran != "usb" {
-			tempSystemDisk := false
-			children = 1
-			tempDisk := model1.Storages{
-				DiskName: d.Model,
-				Path:     d.Path,
-				Size:     d.Size,
+		if d.Tran == "usb" {
+			continue
+		}
+
+		tempSystemDisk := false
+		children = 1
+		tempDisk := model1.Storages{
+			DiskName: d.Model,
+			Path:     d.Path,
+			Size:     d.Size,
+		}
+
+		storageArr := []model1.Storage{}
+		temp := service.MyService.Disk().SmartCTL(d.Path)
+		if reflect.DeepEqual(temp, model1.SmartctlA{}) {
+			temp.SmartStatus.Passed = true
+		}
+
+		for _, v := range d.Children {
+
+			if v.MountPoint == "" {
+				continue
 			}
 
-			storageArr := []model1.Storage{}
-			temp := service.MyService.Disk().SmartCTL(d.Path)
-			if reflect.DeepEqual(temp, model1.SmartctlA{}) {
-				temp.SmartStatus.Passed = true
-			}
-			for _, v := range d.Children {
-				if v.MountPoint != "" {
-					if findSystem == 0 {
-						if v.MountPoint == "/" {
+			if findSystem == 0 {
+				if v.MountPoint == "/" {
+					tempDisk.DiskName = "System"
+					findSystem = 1
+					tempSystemDisk = true
+				}
+				if len(v.Children) > 0 {
+					for _, c := range v.Children {
+						if c.MountPoint == "/" {
 							tempDisk.DiskName = "System"
 							findSystem = 1
 							tempSystemDisk = true
-						}
-						if len(v.Children) > 0 {
-							for _, c := range v.Children {
-								if c.MountPoint == "/" {
-									tempDisk.DiskName = "System"
-									findSystem = 1
-									tempSystemDisk = true
-									break
-								}
-							}
+							break
 						}
 					}
-
-					stor := model1.Storage{}
-					stor.MountPoint = v.MountPoint
-					stor.Size = v.FSSize
-					stor.Avail = v.FSAvail
-					stor.Path = v.Path
-					stor.Type = v.FsType
-					stor.DriveName = v.Name
-					if len(v.Label) == 0 {
-						if stor.MountPoint == "/" {
-							stor.Label = "System"
-						} else {
-							stor.Label = filepath.Base(stor.MountPoint)
-						}
-
-						children += 1
-					} else {
-						stor.Label = v.Label
-					}
-					storageArr = append(storageArr, stor)
 				}
 			}
 
-			if len(storageArr) > 0 {
-				if tempSystemDisk && len(system) > 0 {
-					tempStorageArr := []model1.Storage{}
-					for i := 0; i < len(storageArr); i++ {
-						if storageArr[i].MountPoint != "/boot/efi" && storageArr[i].Type != "swap" {
-							tempStorageArr = append(tempStorageArr, storageArr[i])
-						}
-					}
-					tempDisk.Children = tempStorageArr
-					storages = append(storages, tempDisk)
-					diskNumber += 1
-				} else if !tempSystemDisk {
-					tempDisk.Children = storageArr
-					storages = append(storages, tempDisk)
-					diskNumber += 1
+			stor := model1.Storage{}
+			stor.MountPoint = v.MountPoint
+			stor.Size = v.FSSize
+			stor.Avail = v.FSAvail
+			stor.Path = v.Path
+			stor.Type = v.FsType
+			stor.DriveName = v.Name
+			if len(v.Label) == 0 {
+				if stor.MountPoint == "/" {
+					stor.Label = "System"
+				} else {
+					stor.Label = filepath.Base(stor.MountPoint)
 				}
+
+				children += 1
+			} else {
+				stor.Label = v.Label
+			}
+			storageArr = append(storageArr, stor)
+		}
+
+		if len(storageArr) > 0 {
+			if tempSystemDisk && len(system) > 0 {
+				tempStorageArr := []model1.Storage{}
+				for i := 0; i < len(storageArr); i++ {
+					if storageArr[i].MountPoint != "/boot/efi" && storageArr[i].Type != "swap" {
+						tempStorageArr = append(tempStorageArr, storageArr[i])
+					}
+				}
+				tempDisk.Children = tempStorageArr
+				storages = append(storages, tempDisk)
+				diskNumber += 1
+			} else if !tempSystemDisk {
+				tempDisk.Children = storageArr
+				storages = append(storages, tempDisk)
+				diskNumber += 1
 			}
 		}
 	}

@@ -138,7 +138,14 @@ func GetDiskList(c *gin.Context) {
 			continue
 		}
 
-		if list[i].Tran == "sata" || list[i].Tran == "nvme" || list[i].Tran == "spi" || list[i].Tran == "sas" || strings.Contains(list[i].SubSystems, "virtio") || (list[i].Tran == "ata" && list[i].Type == "disk") {
+		if list[i].Tran == "sata" ||
+			list[i].Tran == "nvme" ||
+			list[i].Tran == "spi" ||
+			list[i].Tran == "sas" ||
+			strings.Contains(list[i].SubSystems, "virtio") ||
+			strings.Contains(list[i].SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
+			(list[i].Tran == "ata" && list[i].Type == "disk") {
+
 			temp := service.MyService.Disk().SmartCTL(list[i].Path)
 			if reflect.DeepEqual(temp, model1.SmartctlA{}) {
 				temp.SmartStatus.Passed = true
@@ -398,6 +405,9 @@ func PostDiskAddPartition(c *gin.Context) {
 	// 	return
 	// }
 	diskMap[path] = "busying"
+
+	defer delete(diskMap, path)
+
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
 		// format := service.MyService.Disk().FormatDisk(path+"1", "ext4")
@@ -406,7 +416,11 @@ func PostDiskAddPartition(c *gin.Context) {
 		// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 		// 	return
 		// }
-		service.MyService.Disk().AddPartition(path)
+		output, err := service.MyService.Disk().AddPartition(path)
+		if err != nil {
+			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
+			return
+		}
 	}
 
 	// formatBool := true
@@ -458,8 +472,6 @@ func PostDiskAddPartition(c *gin.Context) {
 	}
 
 	service.MyService.Disk().RemoveLSBLKCache()
-
-	delete(diskMap, path)
 
 	// send notify to client
 	msg := notify.StorageMessage{}
