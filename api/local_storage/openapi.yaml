@@ -21,8 +21,12 @@ servers:
 
 tags:
   - name: Mount methods
+    description: |-
+      Low-level API
 
   - name: Merge methods
+    description: |-
+      High-level API
 
   - name: Merge
     description: |-
@@ -58,6 +62,36 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GetMergesResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
+
+    put:
+      summary: Update a merge
+      description: |-
+        (TODO)
+      operationId: updateMerge
+      tags:
+        - Merge methods
+      parameters:
+        - name: mount_point
+          in: query
+          required: true
+          description: |-
+            (TODO)
+          schema:
+            type: string
+            example: /DATA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Merge"
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateMergeResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
 
   /mount:
     get:
@@ -208,6 +242,19 @@ components:
                     items:
                       $ref: "#/components/schemas/Merge"
 
+    UpdateMergeResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Merge"
+
     GetMountsResponseOK:
       description: OK
       content:
@@ -301,6 +348,17 @@ components:
               - $ref: "#/components/schemas/BaseResponse"
           example:
             message: "Conflict"
+
+    ResponseServiceUnavailable:
+      description: Service Unavailable
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Service Unavailable"
 
   schemas:
     BaseResponse:
