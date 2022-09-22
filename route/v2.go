@@ -12,6 +12,7 @@ import (
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/route/v2"
 	"github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	echo_middleware "github.com/labstack/echo/v4/middleware"
 )
@@ -79,7 +80,7 @@ func InitV2Router() http.Handler {
 		},
 	}))
 
-	e.Use(middleware.OapiRequestValidator(_swagger))
+	e.Use(middleware.OapiRequestValidatorWithOptions(_swagger, &middleware.Options{Options: openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc}}))
 
 	codegen.RegisterHandlersWithBaseURL(e, localStorage, V2APIPath)
 

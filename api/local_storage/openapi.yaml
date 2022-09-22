@@ -22,6 +22,12 @@ servers:
 tags:
   - name: Mount methods
 
+  - name: Merge methods
+
+  - name: Merge
+    description: |-
+      <SchemaDefinition schemaRef="#/components/schemas/Merge" />
+
   - name: Mount
     description: |-
       <SchemaDefinition schemaRef="#/components/schemas/Mount" />
@@ -29,19 +35,33 @@ tags:
 x-tagGroups:
   - name: Mount
     tags:
+      - Merge methods
       - Mount methods
 
   - name: Schemas
     tags:
+      - Merge
       - Mount
 
 security:
   - access_token: []
 
 paths:
+  /merge:
+    get:
+      summary: Get merges
+      description: |-
+        (TODO)
+      operationId: getMerges
+      tags:
+        - Merge methods
+      responses:
+        "200":
+          $ref: "#/components/responses/GetMergesResponseOK"
+
   /mount:
     get:
-      summary: Get all mounted volumes
+      summary: Get mounted volumes
       description: |-
         Get all volumes currently mounted on the system. Volumes can be filtered by corresponding query parameters.
       operationId: getMounts
@@ -173,11 +193,27 @@ components:
       name: Authorization
 
   responses:
+    GetMergesResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Merge"
+
     GetMountsResponseOK:
       description: OK
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
               - type: object
@@ -192,6 +228,7 @@ components:
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
               - type: object
@@ -204,6 +241,7 @@ components:
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
               - type: object
@@ -216,13 +254,16 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/BaseResponse"
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
 
     ResponseBadRequest:
       description: Bad Request
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
           example:
@@ -233,6 +274,7 @@ components:
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
           example:
@@ -243,6 +285,7 @@ components:
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
           example:
@@ -253,6 +296,7 @@ components:
       content:
         application/json:
           schema:
+            readOnly: true
             allOf:
               - $ref: "#/components/schemas/BaseResponse"
           example:
@@ -266,6 +310,37 @@ components:
           description: message returned by server side if there is any
           type: string
           example: ""
+
+    Merge:
+      type: object
+      required:
+        - mount_point
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        fstype:
+          type: string
+          default: "fuse.mergerfs"
+        mount_point:
+          type: string
+          example: "/DATA"
+        source_base_path:
+          type: string
+          example: "/var/lib/casaos/files"
+        source_volume_paths:
+          type: array
+          items:
+            type: string
+            example: /dev/sdb
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        updated_at:
+          type: string
+          readOnly: true
+          format: date-time
 
     Mount:
       type: object
@@ -296,20 +371,30 @@ components:
           example:
             "mergerfs.srcmounts": "/mnt/a:/mnt/b"
 
-    Merge:
+    Volume:
       type: object
       required:
+        - path
         - mount_point
       properties:
         id:
           type: integer
           readOnly: true
-        fstype:
+        uuid:
           type: string
-          default: "fuse.mergerfs"
+          description: (TODO)
+          readOnly: true
+          example: 5c682e86-cec3-4761-9350-8e1a0c2d1ae9
+        path:
+          type: string
+          example: /dev/sdb
+        state:
+          type: integer
+          description: (TODO)
         mount_point:
           type: string
-          example: "/DATA"
-        source_base_path:
+          example: /mnt/sdb
+        created_at:
           type: string
-          example: "/var/lib/casaos/files"
+          readOnly: true
+          format: date-time

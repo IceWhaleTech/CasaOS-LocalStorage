@@ -19,5 +19,5 @@ type Volume struct {
 }
 
 func (p *Volume) TableName() string {
-	return "o_disk"
+	return "o_disk" // legacy table name - :(
 }

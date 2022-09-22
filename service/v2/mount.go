@@ -8,7 +8,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/adapter"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
@@ -52,7 +51,7 @@ func (s *LocalStorageService) GetMounts(params codegen.GetMountsParams) ([]codeg
 	results := make([]codegen.Mount, len(mounts))
 
 	for i, mountInfo := range mounts {
-		results[i] = *fs.ExtendAll(adapter.GetMount(mountInfo))
+		results[i] = *fs.ExtendAll(MountAdapter(mountInfo))
 	}
 
 	return results, nil
@@ -135,4 +134,15 @@ func (s *LocalStorageService) Umount(mountpoint string) error {
 		return err
 	}
 	return nil
+}
+
+func MountAdapter(m *mountinfo.Info) codegen.Mount {
+	return codegen.Mount{
+		MountPoint: m.Mountpoint,
+
+		Id:      &m.ID,
+		Options: &m.Options,
+		Source:  &m.Source,
+		Fstype:  &m.FSType,
+	}
 }
