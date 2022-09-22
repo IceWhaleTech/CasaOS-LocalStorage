@@ -99,11 +99,6 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 		mergeAlreadyExists = true
 	}
 
-	// create source path if it does not exists
-	if err := file.IsNotExistMkDir(*merge.SourceBasePath); err != nil {
-		return err
-	}
-
 	// build sources
 	sources := make([]string, 0)
 
@@ -119,6 +114,11 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	}
 
 	if sourceBasePath != "" {
+		// create source path if it does not exists
+		if err := file.IsNotExistMkDir(sourceBasePath); err != nil {
+			return err
+		}
+
 		sources = append(sources, sourceBasePath)
 	}
 
@@ -150,12 +150,15 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 		}
 	} else {
 		// otherwise, check if the mount point is a mergerfs mount with the same sources
-		if existingSources, err := mergerfs.GetSource(merge.MountPoint); err != nil {
-			if !utils.CompareStringSlices(sources, existingSources) {
-				// update the mergerfs sources if different sources
-				if err := mergerfs.SetSource(merge.MountPoint, sources); err != nil {
-					return err
-				}
+		existingSources, err := mergerfs.GetSource(merge.MountPoint)
+		if err != nil {
+			return err
+		}
+
+		if !utils.CompareStringSlices(sources, existingSources) {
+			// update the mergerfs sources if different sources
+			if err := mergerfs.SetSource(merge.MountPoint, sources); err != nil {
+				return err
 			}
 		}
 	}

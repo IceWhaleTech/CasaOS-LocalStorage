@@ -80,15 +80,6 @@ paths:
       operationId: setMerge
       tags:
         - Merge methods
-      parameters:
-        - name: mount_point
-          in: query
-          required: true
-          description: |-
-            (TODO)
-          schema:
-            type: string
-            example: /DATA
       requestBody:
         required: true
         content:
