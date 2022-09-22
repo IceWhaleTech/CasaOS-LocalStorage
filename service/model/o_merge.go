@@ -2,7 +2,10 @@ package model
 
 import "time"
 
-const MergeSourceVolumes = "SourceVolumes"
+const (
+	MergeSourceBasePath = "SourceBasePath"
+	MergeSourceVolumes  = "SourceVolumes"
+)
 
 // Merge
 type Merge struct {

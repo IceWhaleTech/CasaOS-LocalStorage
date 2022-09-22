@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *LocalStorage) GetMerges(ctx echo.Context) error {
-	merges, err := service.MyService.LocalStorage().GetMergeAll()
+func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParams) error {
+	merges, err := service.MyService.LocalStorage().GetMergeAll(params.MountPoint)
 	if err != nil {
 		message := err.Error()
 		response := codegen.BaseResponse{
@@ -28,6 +28,18 @@ func (s *LocalStorage) GetMerges(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{
 		Data: &data,
 	})
+}
+
+func (s *LocalStorage) SetMerge(ctx echo.Context, params codegen.SetMergeParams) error {
+	var request codegen.Merge
+	if err := ctx.Bind(&request); err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+	}
+
+	// TODO
+
+	return nil
 }
 
 func MergeAdapter(m model2.Merge) codegen.Merge {

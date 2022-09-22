@@ -71,22 +71,40 @@ func init() {
 	service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		sourceBasePath := constants.DefaultFilePath
-
-		merge := model2.Merge{
-			FSType:         fs.MergerFSFullName,
-			MountPoint:     "/DATA",
-			SourceBasePath: &sourceBasePath,
-		}
-		if err := service.MyService.LocalStorage().CreateMerge(&merge); err != nil {
-			if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) || errors.Is(err, v2.ErrAlreadyMounted) {
-				logger.Info(err.Error(), zap.String("path", "/DATA"))
-			} else {
-				panic(err)
-			}
-		}
-
+		ensureDefaultMergePoint()
 		service.MyService.LocalStorage().CheckMergeMount()
+	}
+}
+
+func ensureDefaultMergePoint() {
+	mountPoint := "/DATA"
+	sourceBasePath := constants.DefaultFilePath
+
+	logger.Info("ensure default merge point exists", zap.String("mountPoint", mountPoint), zap.String("sourceBasePath", sourceBasePath))
+
+	existingMerges, err := service.MyService.LocalStorage().GetMergeAll(&mountPoint)
+	if err != nil {
+		panic(err)
+	}
+
+	// check if /DATA is already a merge point
+	if len(existingMerges) > 0 {
+		if len(existingMerges) > 1 {
+			logger.Error("more than one merge point with the same mount point found", zap.String("mountPoint", mountPoint))
+		}
+		return
+	}
+
+	if err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
+		FSType:         fs.MergerFSFullName,
+		MountPoint:     mountPoint,
+		SourceBasePath: &sourceBasePath,
+	}); err != nil {
+		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+			logger.Info(err.Error(), zap.String("mountPoint", mountPoint))
+		} else {
+			panic(err)
+		}
 	}
 }
 

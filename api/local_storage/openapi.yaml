@@ -59,17 +59,25 @@ paths:
       operationId: getMerges
       tags:
         - Merge methods
+      parameters:
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/DATA"
       responses:
         "200":
           $ref: "#/components/responses/GetMergesResponseOK"
         "503":
           $ref: "#/components/responses/ResponseServiceUnavailable"
 
-    put:
-      summary: Update a merge
+    post:
+      summary: Set a merge
       description: |-
         (TODO)
-      operationId: updateMerge
+      operationId: setMerge
       tags:
         - Merge methods
       parameters:
