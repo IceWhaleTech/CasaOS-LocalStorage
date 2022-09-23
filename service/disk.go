@@ -243,7 +243,7 @@ func (d *diskService) SaveMountPoint(m model2.Volume) {
 }
 
 func (d *diskService) UpdateMountPoint(m model2.Volume) {
-	d.db.Model(&model2.Volume{}).Where("uui = ?", m.UUID).Update("mount_point", m.MountPoint)
+	d.db.Model(&model2.Volume{}).Where("uuid = ?", m.UUID).Update("mount_point", m.MountPoint)
 }
 
 func (d *diskService) DeleteMount(id string) {

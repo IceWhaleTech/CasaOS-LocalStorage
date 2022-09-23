@@ -7,8 +7,8 @@ import (
 	"syscall"
 )
 
-func ControlFile(path string) string {
-	return filepath.Join(path, ".mergerfs")
+func ControlFile(fspath string) string {
+	return filepath.Join(fspath, ".mergerfs")
 }
 
 func ListValues(fspath string) (map[string]string, error) {
@@ -40,15 +40,28 @@ func ListValues(fspath string) (map[string]string, error) {
 	return values, nil
 }
 
-func SetSource(ctrlfile string, sources []string) error {
+func SetSource(fspath string, sources []string) error {
+	ctrlfile := ControlFile(fspath)
+
 	key := "user.mergerfs.srcmounts"
-	value := []byte(strings.Join(sources, ":"))
+
+	sourceMap := make(map[string]interface{})
+	for _, source := range sources {
+		sourceMap[source] = true
+	}
+
+	dedupedSources := make([]string, 0)
+	for source := range sourceMap {
+		dedupedSources = append(dedupedSources, source)
+	}
+
+	value := []byte(strings.Join(dedupedSources, ":"))
 
 	return syscall.Setxattr(ctrlfile, key, value, 0)
 }
 
-func GetSource(ctrlfile string) ([]string, error) {
-	values, err := ListValues(ctrlfile)
+func GetSource(fspath string) ([]string, error) {
+	values, err := ListValues(fspath)
 	if err != nil {
 		return nil, err
 	}
@@ -56,14 +69,18 @@ func GetSource(ctrlfile string) ([]string, error) {
 	return strings.Split(values["user.mergerfs.srcmounts"], ":"), nil
 }
 
-func AddSource(ctrlfile string, source string) error {
+func AddSource(fspath string, source string) error {
+	ctrlfile := ControlFile(fspath)
+
 	key := "user.mergerfs.srcmounts"
 	value := []byte("+" + source)
 
 	return syscall.Setxattr(ctrlfile, key, value, 0)
 }
 
-func RemoveSource(ctrlfile string, source string) error {
+func RemoveSource(fspath string, source string) error {
+	ctrlfile := ControlFile(fspath)
+
 	key := "user.mergerfs.srcmounts"
 	value := []byte("-" + source)
 

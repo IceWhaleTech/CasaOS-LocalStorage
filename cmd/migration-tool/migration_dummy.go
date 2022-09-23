@@ -55,6 +55,8 @@ func (u *migrationTool1) PreMigrate() error {
 
 func (u *migrationTool1) Migrate() error {
 	checkToken2_11()
+
+	// TODO - update o_disk mount point base path from /DATA to /mnt
 	return nil
 }
 

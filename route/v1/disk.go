@@ -448,7 +448,7 @@ func PostDiskAddPartition(c *gin.Context) {
 			// childrenName = name + "_" + currentDisk.Children[i].Name
 			childrenName = name + "_" + strconv.Itoa(i+1)
 		}
-		mountPath := "/DATA/" + childrenName
+		mountPath := "/mnt/" + childrenName
 
 		// TODO - @tiger - imlement proxy to system service
 
@@ -477,7 +477,7 @@ func PostDiskAddPartition(c *gin.Context) {
 	msg := notify.StorageMessage{}
 	msg.Action = "ADDED"
 	msg.Path = currentDisk.Children[0].Path
-	msg.Volume = "/DATA/"
+	msg.Volume = "/mnt/"
 	msg.Size = currentDisk.Children[0].Size
 	msg.Type = currentDisk.Children[0].Tran
 

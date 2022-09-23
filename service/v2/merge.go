@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	ErrMergeMountPointAlreadyExists = errors.New("merge mount point already exists")
-	ErrMergeMountPointDoesNotExist  = errors.New("merge mount point does not exist")
+	ErrMergeMountPointAlreadyExists  = errors.New("merge mount point already exists")
+	ErrMergeMountPointDoesNotExist   = errors.New("merge mount point does not exist")
+	ErrMergeMountPointSourceConflict = errors.New("mount point of source volume (or source base path), should not be a child path of the mount point")
 )
 
 func init() {
@@ -82,13 +83,6 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 		return ErrMergeMountPointDoesNotExist
 	}
 
-	// check if the mount point is empty
-	if bool, err := file.IsDirEmpty(merge.MountPoint); err != nil {
-		return err
-	} else if !bool {
-		return ErrMountPointIsNotEmpty
-	}
-
 	// check if a merge already exists in database by mount point
 	var existingMerge model2.Merge
 
@@ -114,6 +108,11 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	}
 
 	if sourceBasePath != "" {
+		// check if sourceBasePath is under mount point
+		if strings.HasPrefix(sourceBasePath, merge.MountPoint) {
+			return ErrMergeMountPointSourceConflict
+		}
+
 		// create source path if it does not exists
 		if err := file.IsNotExistMkDir(sourceBasePath); err != nil {
 			return err
@@ -134,12 +133,23 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	}
 
 	for _, sourceVolume := range sourceVolumes {
+		// check if sourceBasePath is under mount point
+		if strings.HasPrefix(sourceVolume.MountPoint, merge.MountPoint) {
+			return ErrMergeMountPointSourceConflict
+		}
+
 		sources = append(sources, sourceVolume.MountPoint)
 	}
 
-	// check if the mount point is a mergerfs mount
+	// check if the mount point is NOT a mergerfs mount
 	if _, err := mergerfs.ListValues(merge.MountPoint); err != nil {
-		// try to mount it if it is not a mergerfs mount
+		// check if the mount point is empty before creating a new mergerfs mount
+		if bool, err := file.IsDirEmpty(merge.MountPoint); err != nil {
+			return err
+		} else if !bool {
+			return ErrMountPointIsNotEmpty
+		}
+
 		source := strings.Join(sources, ":")
 		if _, err := s.Mount(codegen.Mount{
 			MountPoint: merge.MountPoint,
@@ -149,7 +159,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 			return err
 		}
 	} else {
-		// otherwise, check if the mount point is a mergerfs mount with the same sources
+		// if it is already a merge point, check if the mount point is a mergerfs mount with the same sources
 		existingSources, err := mergerfs.GetSource(merge.MountPoint)
 		if err != nil {
 			return err

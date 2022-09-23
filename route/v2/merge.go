@@ -49,10 +49,16 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		allVolumes := service.MyService.Disk().GetSerialAll()
 		sourceVolumes = make([]*model2.Volume, 0, len(*m.SourceVolumePaths))
 		for _, volumePath := range *m.SourceVolumePaths {
+			volumeFound := false
 			for i := range allVolumes {
 				if volumePath == allVolumes[i].Path {
+					volumeFound = true
 					sourceVolumes = append(sourceVolumes, &allVolumes[i])
 				}
+			}
+			if !volumeFound {
+				message := "volume " + volumePath + " not found, check if the volume has a valid partition"
+				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 			}
 		}
 	}

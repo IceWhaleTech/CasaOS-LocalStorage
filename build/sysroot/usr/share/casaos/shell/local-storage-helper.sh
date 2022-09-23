@@ -82,7 +82,7 @@ do_mount() {
   DEVBASE=$1
   DEVICE="${DEVBASE}"
   # See if this drive is already mounted, and if so where
-  MOUNT_POINT=$(lsblk -o name,mountpoint | grep ${DEVICE} | awk '{print $2}')
+  MOUNT_POINT=$(lsblk -o mountpoint -nr "${DEVICE}" | head -n 1)
 
   if [ -n "${MOUNT_POINT}" ]; then
     ${log} "Warning: ${DEVICE} is already mounted at ${MOUNT_POINT}"

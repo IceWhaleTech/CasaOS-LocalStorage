@@ -55,6 +55,7 @@ func ExecResultStrArray(cmdStr string) ([]string, error) {
 
 func ExecResultStr(cmdStr string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+	println(cmd.String())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", err
