@@ -2,8 +2,10 @@ package v2
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
@@ -12,7 +14,10 @@ import (
 )
 
 func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParams) error {
-	// TODO return 503 when merge is not enabled
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		message := "mergerfs is not enabled"
+		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &message})
+	}
 
 	merges, err := service.MyService.LocalStorage().GetMergeAll(params.MountPoint)
 	if err != nil {
@@ -29,7 +34,10 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 }
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
-	// TODO return 503 when merge is not enabled
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		message := "mergerfs is not enabled"
+		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &message})
+	}
 
 	var m codegen.Merge
 	if err := ctx.Bind(&m); err != nil {

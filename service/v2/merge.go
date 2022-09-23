@@ -30,34 +30,48 @@ func init() {
 
 // Make sure the serial disk is removed from the merge list when it is deleted from database, to keep the database consistent.
 func hookAfterDeleteVolume(db *gorm.DB, model interface{}) {
-	if targetVolume, ok := model.(*model2.Volume); ok {
-		gdb := db.Statement.Context.Value(sqlite.ContextKeyGlobalDB)
-		if gdb, ok := gdb.(*gorm.DB); ok {
+	var targetVolumes []model2.Volume
 
-			var merges []model2.Merge
+	switch t := model.(type) {
+	case model2.Volume:
+		targetVolumes = []model2.Volume{t}
+	case *model2.Volume:
+		targetVolumes = []model2.Volume{*t}
+	case []model2.Volume:
+		targetVolumes = t
+	case *[]model2.Volume:
+		targetVolumes = *t
+	default:
+		return
+	}
 
-			if err := gdb.Model(&model2.Merge{}).Preload(model2.MergeSourceVolumes).Find(&merges).Error; err != nil {
-				panic(err)
-			}
+	var merges []model2.Merge
 
-			for i := range merges {
-				updatedVolumes := make([]*model2.Volume, 0)
-				for _, sourceVolume := range merges[i].SourceVolumes {
-					if sourceVolume.ID != targetVolume.ID {
-						updatedVolumes = append(updatedVolumes, sourceVolume)
-					}
+	if err := db.Model(&model2.Merge{}).Preload(model2.MergeSourceVolumes).Find(&merges).Error; err != nil {
+		logger.Error("failed to get merge list from database", zap.Error(err))
+		return
+	}
+
+	for i := range merges {
+		updatedVolumes := make([]*model2.Volume, 0)
+		for _, sourceVolume := range merges[i].SourceVolumes {
+			for _, targetVolume := range targetVolumes {
+				if sourceVolume.ID == targetVolume.ID {
+					break // skip including the volume to be deleted
 				}
-
-				if err := gdb.Model(&merges[i]).Association(model2.MergeSourceVolumes).Error; err != nil {
-					panic(err)
-				}
-
-				if err := gdb.Model(&merges[i]).Association(model2.MergeSourceVolumes).Replace(updatedVolumes); err != nil {
-					panic(err)
-				}
+				updatedVolumes = append(updatedVolumes, sourceVolume)
 			}
 		}
 
+		if err := db.Model(&merges[i]).Association(model2.MergeSourceVolumes).Error; err != nil {
+			logger.Error("failed to enter association mode between merges and volumes", zap.Error(err), zap.Any("merge", merges[i]))
+			return
+		}
+
+		if err := db.Model(&merges[i]).Association(model2.MergeSourceVolumes).Replace(updatedVolumes); err != nil {
+			logger.Error("failed to update merge source volumes", zap.Error(err), zap.Any("merge", merges[i]), zap.Any("updatedVolumes", updatedVolumes))
+			return
+		}
 	}
 }
 

@@ -251,9 +251,24 @@ func (d *diskService) DeleteMount(id string) {
 }
 
 func (d *diskService) DeleteMountPoint(path, mountPoint string) {
-	d.db.Where("path = ? AND mount_point = ?", path, mountPoint).Delete(&model2.Volume{})
+	var existingVolumes []model2.Volume
 
-	command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
+	if result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Find(&existingVolumes); result.Error != nil {
+		logger.Error("error when finding the volume", zap.Error(result.Error), zap.String("path", path), zap.String("mountPoint", mountPoint))
+	} else if result.RowsAffected <= 0 {
+		logger.Error("no volume found", zap.String("path", path), zap.String("mountPoint", mountPoint))
+	} else {
+		logger.Info("deleting volume from database", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		d.db.Delete(&existingVolumes)
+	}
+
+	output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
+	if err != nil {
+		logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
+		return
+	}
+
+	logger.Info(output, zap.String("path", path), zap.String("mountPoint", mountPoint))
 }
 
 func (d *diskService) GetSerialAll() []model2.Volume {

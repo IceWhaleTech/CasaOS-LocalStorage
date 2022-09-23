@@ -9,17 +9,11 @@ import (
 	"time"
 )
 
-func OnlyExec(cmdStr string) error {
+func OnlyExec(cmdStr string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	defer stdout.Close()
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	return cmd.Wait()
+	println(cmd.String())
+	buf, err := cmd.CombinedOutput()
+	return string(buf), err
 }
 
 func ExecResultStrArray(cmdStr string) ([]string, error) {

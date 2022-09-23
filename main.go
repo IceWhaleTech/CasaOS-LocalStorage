@@ -10,10 +10,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
@@ -74,6 +76,30 @@ func init() {
 		ensureDefaultMergePoint()
 		service.MyService.LocalStorage().CheckMergeMount()
 	}
+
+	ensureDefaultDirectories()
+}
+
+func ensureDefaultDirectories() {
+	sysType := runtime.GOOS
+	var dirArray []string
+	if sysType == "linux" {
+		dirArray = []string{"/DATA/AppData", "/DATA/Documents", "/DATA/Downloads", "/DATA/Gallery", "/DATA/Media/Movies", "/DATA/Media/TV Shows", "/DATA/Media/Music"}
+	}
+
+	if sysType == "windows" {
+		dirArray = []string{"C:\\CasaOS\\DATA\\AppData", "C:\\CasaOS\\DATA\\Documents", "C:\\CasaOS\\DATA\\Downloads", "C:\\CasaOS\\DATA\\Gallery", "C:\\CasaOS\\DATA\\Media/Movies", "C:\\CasaOS\\DATA\\Media\\TV Shows", "C:\\CasaOS\\DATA\\Media\\Music"}
+	}
+
+	if sysType == "darwin" {
+		dirArray = []string{"./CasaOS/DATA/AppData", "./CasaOS/DATA/Documents", "./CasaOS/DATA/Downloads", "./CasaOS/DATA/Gallery", "./CasaOS/DATA/Media/Movies", "./CasaOS/DATA/Media/TV Shows", "./CasaOS/DATA/Media/Music"}
+	}
+
+	for _, v := range dirArray {
+		if err := file.IsNotExistMkDir(v); err != nil {
+			logger.Error("ensureDefaultDirectories", zap.Error(err))
+		}
+	}
 }
 
 func ensureDefaultMergePoint() {
@@ -100,8 +126,11 @@ func ensureDefaultMergePoint() {
 		MountPoint:     mountPoint,
 		SourceBasePath: &sourceBasePath,
 	}); err != nil {
-		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) || errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
 			logger.Info(err.Error(), zap.String("mountPoint", mountPoint))
+		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+			logger.Error("Mount point "+mountPoint+" is not empty - disabling MergerFS", zap.String("mountPoint", mountPoint))
+			config.ServerInfo.EnableMergerFS = "False"
 		} else {
 			panic(err)
 		}

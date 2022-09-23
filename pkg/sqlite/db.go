@@ -15,7 +15,7 @@ import (
 type ContextKey string
 
 const (
-	ContextKeyGlobalDB = ContextKey("gdb")
+	contextKeyGlobalDB = ContextKey("gdb")
 
 	// GORM's lifecyle
 	HookBeforeCreate = "before_create"
@@ -100,8 +100,11 @@ func hookFunc(name string) func(d *gorm.DB) {
 			return
 		}
 
-		for _, f := range Hooks[name] {
-			f(d, d.Statement.Model)
+		gdb := d.Statement.Context.Value(contextKeyGlobalDB)
+		if gdb, ok := gdb.(*gorm.DB); ok {
+			for _, f := range Hooks[name] {
+				f(gdb, d.Statement.Model)
+			}
 		}
 	}
 }
@@ -125,7 +128,7 @@ func GetDBByFile(dbFile string) *gorm.DB {
 		panic(err)
 	}
 
-	ctx := context.WithValue(context.Background(), ContextKeyGlobalDB, db)
+	ctx := context.WithValue(context.Background(), contextKeyGlobalDB, db)
 
 	return db.WithContext(ctx)
 }
