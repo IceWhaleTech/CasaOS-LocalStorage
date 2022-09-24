@@ -20,7 +20,7 @@ import (
 var (
 	ErrMergeMountPointAlreadyExists  = errors.New("merge mount point already exists")
 	ErrMergeMountPointDoesNotExist   = errors.New("merge mount point does not exist")
-	ErrMergeMountPointSourceConflict = errors.New("mount point of source volume (or source base path), should not be a child path of the mount point")
+	ErrMergeMountPointSourceConflict = errors.New("source mount point should not be a child path of the merge mount point")
 )
 
 func init() {
@@ -114,16 +114,23 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	var sourceBasePath string
 
 	if mergeAlreadyExists && existingMerge.SourceBasePath != nil {
+		// default to the existing source base path if not specified in the request
 		sourceBasePath = *existingMerge.SourceBasePath
 	}
 
 	if merge.SourceBasePath != nil {
+		// override original source base path if specified in the request
 		sourceBasePath = *merge.SourceBasePath
 	}
 
 	if sourceBasePath != "" {
 		// check if sourceBasePath is under mount point
 		if strings.HasPrefix(sourceBasePath, merge.MountPoint) {
+			logger.Error(
+				"source base path should not be a child path of the merge mount point",
+				zap.String("sourceBasePath", sourceBasePath),
+				zap.String("merge.MountPoint", merge.MountPoint),
+			)
 			return ErrMergeMountPointSourceConflict
 		}
 
@@ -139,16 +146,23 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	var sourceVolumes []*model2.Volume
 
 	if mergeAlreadyExists && existingMerge.SourceVolumes != nil {
+		// default to the original source volumes if not specified in the request
 		sourceVolumes = existingMerge.SourceVolumes
 	}
 
 	if merge.SourceVolumes != nil {
+		// override original source volumes if specified in the request
 		sourceVolumes = merge.SourceVolumes
 	}
 
 	for _, sourceVolume := range sourceVolumes {
 		// check if sourceBasePath is under mount point
 		if strings.HasPrefix(sourceVolume.MountPoint, merge.MountPoint) {
+			logger.Error(
+				"mount point of source volume should not be a child path of the mount point",
+				zap.Any("sourceVolume.MountPoint", sourceVolume.MountPoint),
+				zap.Any("merge.MountPoint", merge.MountPoint),
+			)
 			return ErrMergeMountPointSourceConflict
 		}
 

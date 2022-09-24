@@ -30,12 +30,12 @@ func (s *usbService) ExecUSBAutoMountShell(state string) {
 	}
 }
 
-func (c *usbService) GetSysInfo() host.InfoStat {
+func (s *usbService) GetSysInfo() host.InfoStat {
 	info, _ := host.Info()
 	return *info
 }
 
-func (c *usbService) GetDeviceTree() (string, error) {
+func (s *usbService) GetDeviceTree() (string, error) {
 	return command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDeviceTree")
 }
 

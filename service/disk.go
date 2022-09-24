@@ -223,12 +223,11 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 }
 
 func (d *diskService) MountDisk(path, volume string) error {
-	r, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
+	_, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(r)
 	return nil
 }
 

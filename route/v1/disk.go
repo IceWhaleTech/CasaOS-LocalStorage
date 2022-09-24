@@ -460,6 +460,11 @@ func PostDiskAddPartition(c *gin.Context) {
 		// 		return
 		// 	}
 		// }
+		if err := service.MyService.Disk().MountDisk(currentDisk.Children[i].Path, mountPath); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			return
+		}
+
 		m := model2.Volume{}
 		m.MountPoint = mountPath
 		m.Path = currentDisk.Children[i].Path
@@ -468,7 +473,6 @@ func PostDiskAddPartition(c *gin.Context) {
 		m.CreatedAt = time.Now().Unix()
 		service.MyService.Disk().SaveMountPoint(m)
 		// mount dir
-		service.MyService.Disk().MountDisk(currentDisk.Children[i].Path, mountPath)
 	}
 
 	service.MyService.Disk().RemoveLSBLKCache()
