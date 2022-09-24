@@ -78,9 +78,13 @@ func ExecSmartCTLByPath(path string) []byte {
 	timeout := 3
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "smartctl", "-a", path, "-j").Output()
+
+	cmd := exec.CommandContext(ctx, "smartctl", "-a", path, "-j")
+	println(cmd.String())
+
+	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println("smartctl", err)
+		fmt.Println(string(output))
 		return nil
 	}
 	return output

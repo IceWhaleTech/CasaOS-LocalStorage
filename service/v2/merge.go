@@ -248,26 +248,26 @@ func (s *LocalStorageService) CheckMergeMount() {
 		for _, mount := range mounts {
 			if mount.MountPoint == mergeList[i].MountPoint {
 				if *mount.Fstype == mergeList[i].FSType {
-					logger.Info("Merge already exists - mount not needed", zap.Any("merge", mergeList[i]))
+					logger.Info("merge already exists - mount not needed", zap.Any("merge", mergeList[i]))
 					mountNeeded = false
 					break
 				}
-				logger.Error("Not a mergerfs mount point", zap.Any("mount", mount))
+				logger.Error("not a mergerfs mount point", zap.Any("mount", mount))
 			}
 		}
 
 		// mount if not mounted yet
 		if mountNeeded {
-			logger.Info("Merge not found - mount needed", zap.Any("merge", mergeList[i]))
+			logger.Info("merge not found - mount needed", zap.Any("merge", mergeList[i]))
 			if err := s.SetMerge(&mergeList[i]); err != nil {
-				logger.Error("Failed to create merge", zap.Error(err))
+				logger.Error("failed to create merge", zap.Error(err))
 			}
 			continue
 		}
 
 		currentSourceList, err := mergerfs.GetSource(mergeList[i].MountPoint)
 		if err != nil {
-			logger.Error("Failed to get current source list", zap.Error(err), zap.Any("merge", mergeList[i]))
+			logger.Error("failed to get current source list", zap.Error(err), zap.Any("merge", mergeList[i]))
 			continue
 		}
 
@@ -278,12 +278,12 @@ func (s *LocalStorageService) CheckMergeMount() {
 
 		if !utils.CompareStringSlices(currentSourceList, expectSourceList) {
 
-			logger.Info("Merge source list not match - update needed",
+			logger.Info("merge source list not match - update needed",
 				zap.String("currentSourceList", strings.Join(currentSourceList, ",")),
 				zap.String("expectSourceList", strings.Join(expectSourceList, ",")))
 
 			if err := s.SetMerge(&mergeList[i]); err != nil {
-				logger.Error("Failed to set merge sources", zap.Any("merge", mergeList[i]), zap.Error(err))
+				logger.Error("failed to set merge sources", zap.Any("merge", mergeList[i]), zap.Error(err))
 			}
 		}
 	}

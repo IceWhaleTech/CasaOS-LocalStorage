@@ -32,7 +32,7 @@ UMountPointAndRemoveDir() {
   DEVICE=$1
   MOUNT_POINT=$(mount | grep ${DEVICE} | awk '{ print $3 }')
   if [[ -z ${MOUNT_POINT} ]]; then
-    ${log} "Warning: ${DEVICE} is not mounted"
+    echo "Warning: ${DEVICE} is not mounted"
   else
     umount -lf ${DEVICE}
     /bin/rmdir "${MOUNT_POINT}"
@@ -54,6 +54,7 @@ EOF
 #param 路径   /dev/sdb
 #param 要挂载的目录
 AddPartition() {
+  set -e
 
   DelPartition $1
   parted -s $1 mklabel gpt
@@ -85,7 +86,7 @@ do_mount() {
   MOUNT_POINT=$(lsblk -o mountpoint -nr "${DEVICE}" | head -n 1)
 
   if [ -n "${MOUNT_POINT}" ]; then
-    ${log} "Warning: ${DEVICE} is already mounted at ${MOUNT_POINT}"
+    echo "Warning: ${DEVICE} is already mounted at ${MOUNT_POINT}"
     exit 1
   fi
 
@@ -100,31 +101,31 @@ do_mount() {
   DEV_LABEL="${LABEL}"
 
   # Use the device name in case the drive doesn't have label
-  if [ -z ${DEV_LABEL} ]; then
+  if [ -z "${DEV_LABEL}" ]; then
     DEV_LABEL="${DEVBASE}"
   fi
 
   MOUNT_POINT="${DEV_LABEL}"
 
-  ${log} "Mount point: ${MOUNT_POINT}"
+  echo "Mount point: ${MOUNT_POINT}"
 
-  mkdir -p ${MOUNT_POINT}
+  mkdir -p "${MOUNT_POINT}"
 
   case ${ID_FS_TYPE} in
   vfat)
-    mount -t vfat -o rw,relatime,users,gid=100,umask=000,shortname=mixed,utf8=1,flush ${DEVICE} ${MOUNT_POINT}
+    mount -t vfat -o rw,relatime,users,gid=100,umask=000,shortname=mixed,utf8=1,flush "${DEVICE}" "${MOUNT_POINT}"
     ;;
   ext[2-4])
-    mount -o noatime ${DEVICE} ${MOUNT_POINT} >/dev/null 2>&1
+    mount -o noatime "${DEVICE}" "${MOUNT_POINT}"
     ;;
   exfat)
-    mount -t exfat ${DEVICE} ${MOUNT_POINT} >/dev/null 2>&1
+    mount -t exfat "${DEVICE}" "${MOUNT_POINT}"
     ;;
   ntfs)
-    ntfs-3g ${DEVICE} ${MOUNT_POINT}
+    ntfs-3g "${DEVICE}" "${MOUNT_POINT}"
     ;;
   iso9660)
-    mount -t iso9660 ${DEVICE} ${MOUNT_POINT}
+    mount -t iso9660 "${DEVICE}" "${MOUNT_POINT}"
     ;;
   *)
     /bin/rmdir "${MOUNT_POINT}"
@@ -135,17 +136,16 @@ do_mount() {
 
 # $1=sda1
 do_umount() {
-  log="logger -t usb-mount.sh -s "
   DEVBASE=$1
   DEVICE="${DEVBASE}"
   MOUNT_POINT=$(mount | grep ${DEVICE} | awk '{ print $3 }')
 
   if [[ -z ${MOUNT_POINT} ]]; then
-    ${log} "Warning: ${DEVICE} is not mounted"
+    echo "Warning: ${DEVICE} is not mounted"
   else
     /bin/kill -9 $(lsof ${MOUNT_POINT})
     umount -l ${DEVICE}
-    ${log} "Unmounted ${DEVICE} from ${MOUNT_POINT}"
+    echo "Unmounted ${DEVICE} from ${MOUNT_POINT}"
     if [ "`ls -A ${MOUNT_POINT}`" = "" ]; then
       /bin/rm -fr "${MOUNT_POINT}"
     fi

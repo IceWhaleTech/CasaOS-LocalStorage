@@ -418,7 +418,7 @@ func PostDiskAddPartition(c *gin.Context) {
 		// }
 		output, err := service.MyService.Disk().AddPartition(path)
 		if err != nil {
-			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
 			return
 		}
 	}

@@ -70,16 +70,16 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 		}
 	}
 	var m model.SmartctlA
-	str := command.ExecSmartCTLByPath(path)
-	if str == nil {
-		logger.Error("failed to  exec shell - smartctl exec error")
+	buf := command.ExecSmartCTLByPath(path)
+	if buf == nil {
+		logger.Error("failed to exec shell - smartctl exec error")
 		Cache.Add(key, m, time.Minute*10)
 		return m
 	}
 
-	err := json2.Unmarshal([]byte(str), &m)
+	err := json2.Unmarshal(buf, &m)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Error(err))
+		logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
 	}
 	if !reflect.DeepEqual(m, model.SmartctlA{}) {
 		Cache.Add(key, m, time.Hour*24)
@@ -109,8 +109,7 @@ func (d *diskService) DelPartition(path, num string) ([]string, error) {
 
 // part
 func (d *diskService) AddPartition(path string) (string, error) {
-	output, err := command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
-	return strings.Join(output, "\n"), err
+	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
 }
 
 func (d *diskService) AddAllPartition(path string) {
@@ -263,24 +262,36 @@ func (d *diskService) DeleteMount(id string) {
 }
 
 func (d *diskService) DeleteMountPoint(path, mountPoint string) {
+	if mountInfoList, err := mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
+		if i.Source == path && i.Mountpoint == mountPoint {
+			return false, true
+		}
+		return true, false
+	}); err != nil {
+		logger.Error("failed to checking for existing mount", zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
+		return
+	} else if len(mountInfoList) == 0 {
+		logger.Info("already umounted", zap.String("path", path), zap.String("mountPoint", mountPoint))
+	} else {
+		output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
+		if err != nil {
+			logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
+			return
+		}
+
+		logger.Info(output, zap.String("path", path), zap.String("mountPoint", mountPoint))
+	}
+
 	var existingVolumes []model2.Volume
 
 	if result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Find(&existingVolumes); result.Error != nil {
 		logger.Error("error when finding the volume", zap.Error(result.Error), zap.String("path", path), zap.String("mountPoint", mountPoint))
 	} else if result.RowsAffected <= 0 {
-		logger.Error("no volume found", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info("no volume found", zap.String("path", path), zap.String("mountPoint", mountPoint))
 	} else {
 		logger.Info("deleting volume from database", zap.String("path", path), zap.String("mountPoint", mountPoint))
 		d.db.Delete(&existingVolumes)
 	}
-
-	output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
-	if err != nil {
-		logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
-		return
-	}
-
-	logger.Info(output, zap.String("path", path), zap.String("mountPoint", mountPoint))
 }
 
 func (d *diskService) GetSerialAll() []model2.Volume {
