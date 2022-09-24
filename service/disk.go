@@ -13,6 +13,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
+	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/shirou/gopsutil/v3/disk"
@@ -222,8 +223,20 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 	return m
 }
 
-func (d *diskService) MountDisk(path, volume string) error {
-	_, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + volume)
+func (d *diskService) MountDisk(path, mountPoint string) error {
+	if mountInfoList, err := mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
+		if i.Source == path && i.Mountpoint == mountPoint {
+			return false, true
+		}
+		return true, false
+	}); err != nil {
+		return err
+	} else if len(mountInfoList) > 0 {
+		logger.Info("already mounted", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		return nil
+	}
+
+	_, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
 	if err != nil {
 		return err
 	}

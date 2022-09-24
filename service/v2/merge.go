@@ -229,17 +229,17 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 }
 
 func (s *LocalStorageService) CheckMergeMount() {
-	logger.Info("Checking merge mount...")
+	logger.Info("checking merge mount...")
 
 	mergeList, err := s.GetMergeAll(nil)
 	if err != nil {
-		logger.Error("Failed to get merge list from database", zap.Error(err))
+		logger.Error("failed to get merge list from database", zap.Error(err))
 		return
 	}
 
 	mounts, err := s.GetMounts(codegen.GetMountsParams{})
 	if err != nil {
-		logger.Error("Failed to get mount list from system", zap.Error(err))
+		logger.Error("failed to get mount list from system", zap.Error(err))
 		return
 	}
 

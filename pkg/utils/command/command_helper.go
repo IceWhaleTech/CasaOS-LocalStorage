@@ -13,6 +13,7 @@ func OnlyExec(cmdStr string) (string, error) {
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 	println(cmd.String())
 	buf, err := cmd.CombinedOutput()
+	println(string(buf))
 	return string(buf), err
 }
 
