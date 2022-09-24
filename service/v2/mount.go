@@ -76,11 +76,12 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	// check if mountpoint is empty
+	logger.Info("checking if mount point exist", zap.String("mount point", m.MountPoint))
 	if empty, err := file.IsDirEmpty(m.MountPoint); err != nil {
-		logger.Error("Error when trying to check if mountpoint is empty", zap.Error(err), zap.Any("mount", m))
+		logger.Error("error when trying to check if mount point is empty", zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	} else if !empty {
-		logger.Error("MountPoint is not empty", zap.Any("mount", m))
+		logger.Error("mount point is not empty", zap.Any("mount", m))
 		return nil, ErrMountPointIsNotEmpty
 	}
 
@@ -118,19 +119,19 @@ func (s *LocalStorageService) Umount(mountpoint string) error {
 		MountPoint: &mountpoint,
 	})
 	if err != nil {
-		logger.Error("Error when trying to get mounted volume", zap.Error(err), zap.Any("mountpoint", mountpoint))
+		logger.Error("Error when trying to get mounted volume", zap.Error(err), zap.String("mount point", mountpoint))
 		return err
 	}
 
 	if len(results) == 0 {
-		logger.Info("not mounted", zap.Any("mountpoint", mountpoint))
+		logger.Info("not mounted", zap.String("mount point", mountpoint))
 		return ErrNotMounted
 	}
 
 	cmd := exec.Command("umount", mountpoint) // #nosec
 	logger.Info("Executing command", zap.Any("command", cmd.String()))
 	if buf, err := cmd.CombinedOutput(); err != nil {
-		logger.Error(string(buf), zap.Error(err), zap.Any("mountpoint", mountpoint))
+		logger.Error(string(buf), zap.Error(err), zap.String("mount point", mountpoint))
 		return err
 	}
 	return nil

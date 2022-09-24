@@ -21,6 +21,7 @@ type Repository interface {
 	LocalStorage() *v2.LocalStorageService
 	Gateway() gateway.ManagementService
 	Notify() common.NotifyService
+	Shares() common.ShareService
 }
 
 func NewService(db *gorm.DB) Repository {
@@ -34,12 +35,18 @@ func NewService(db *gorm.DB) Repository {
 		panic(err)
 	}
 
+	sharesService, err := common.NewShareService(config.CommonInfo.RuntimePath)
+	if err != nil {
+		panic(err)
+	}
+
 	return &store{
 		usb:          NewUSBService(),
 		disk:         NewDiskService(db),
 		localStorage: v2.NewLocalStorageService(db, wrapper.NewMountInfo()),
 		gateway:      gatewayManagement,
 		notify:       notifyService,
+		shares:       sharesService,
 	}
 }
 
@@ -49,6 +56,7 @@ type store struct {
 	localStorage *v2.LocalStorageService
 	gateway      gateway.ManagementService
 	notify       common.NotifyService
+	shares       common.ShareService
 }
 
 func (c *store) Gateway() gateway.ManagementService {
@@ -69,4 +77,8 @@ func (c *store) LocalStorage() *v2.LocalStorageService {
 
 func (c *store) Notify() common.NotifyService {
 	return c.notify
+}
+
+func (c *store) Shares() common.ShareService {
+	return c.shares
 }

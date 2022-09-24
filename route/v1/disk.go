@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -12,13 +11,18 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/model/notify"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/encryption"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/disk"
+	"go.uber.org/zap"
 )
+
+const messagePathStorageStatus = "storage_status"
 
 var diskMap = make(map[string]string)
 
@@ -138,53 +142,46 @@ func GetDiskList(c *gin.Context) {
 			continue
 		}
 
-		if list[i].Tran == "sata" ||
-			list[i].Tran == "nvme" ||
-			list[i].Tran == "spi" ||
-			list[i].Tran == "sas" ||
-			strings.Contains(list[i].SubSystems, "virtio") ||
-			strings.Contains(list[i].SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
-			(list[i].Tran == "ata" && list[i].Type == "disk") {
-
-			temp := service.MyService.Disk().SmartCTL(list[i].Path)
-			if reflect.DeepEqual(temp, model1.SmartctlA{}) {
-				temp.SmartStatus.Passed = true
-			}
-			isAvail := true
-			for _, v := range list[i].Children {
-				if v.MountPoint != "" {
-					stor := model1.Storage{}
-					stor.MountPoint = v.MountPoint
-					stor.Size = v.FSSize
-					stor.Avail = v.FSAvail
-					stor.Path = v.Path
-					stor.Type = v.FsType
-					stor.DriveName = list[i].Name
-					storage = append(storage, stor)
-					isAvail = false
-				}
-			}
-
-			if isAvail {
-				// if len(list[i].Children) == 1 && list[i].Children[0].FsType == "ext4" {
-				disk.NeedFormat = false
-				avail = append(avail, disk)
-				// } else {
-				// 	disk.NeedFormat = true
-				// 	avail = append(avail, disk)
-				// }
-			}
-
-			disk.Temperature = temp.Temperature.Current
-			disk.Health = strconv.FormatBool(temp.SmartStatus.Passed)
-
-			disks = append(disks, disk)
+		if !isDiskSupported(&list[i]) {
+			continue
 		}
+
+		temp := service.MyService.Disk().SmartCTL(list[i].Path)
+		if reflect.DeepEqual(temp, model1.SmartctlA{}) {
+			temp.SmartStatus.Passed = true
+		}
+
+		isAvail := true
+		for _, v := range list[i].Children {
+			if v.MountPoint != "" {
+				stor := model1.Storage{}
+				stor.MountPoint = v.MountPoint
+				stor.Size = v.FSSize
+				stor.Avail = v.FSAvail
+				stor.Path = v.Path
+				stor.Type = v.FsType
+				stor.DriveName = list[i].Name
+				storage = append(storage, stor)
+				isAvail = false
+			}
+		}
+
+		if isAvail {
+			disk.NeedFormat = false
+			avail = append(avail, disk)
+		}
+
+		disk.Temperature = temp.Temperature.Current
+		disk.Health = strconv.FormatBool(temp.SmartStatus.Passed)
+
+		disks = append(disks, disk)
 	}
-	data := make(map[string]interface{}, 3)
-	data["drive"] = disks
-	data["storage"] = storage
-	data["avail"] = avail
+
+	data := map[string]interface{}{
+		"disks":   disks,
+		"storage": storage,
+		"avail":   avail,
+	}
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
 }
@@ -234,7 +231,16 @@ func GetDisksUSBList(c *gin.Context) {
 
 func DeleteDisksUmount(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
+
+	// requires password from user to confirm the action
+	if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
+		c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+		return
+	}
 
 	path := js["path"]
 
@@ -243,22 +249,6 @@ func DeleteDisksUmount(c *gin.Context) {
 		return
 	}
 
-	// TODO - @tiger - implement proxy to user service
-
-	// id := c.GetHeader("user_id")
-	// pwd := js["password"]
-
-	// user := service.MyService.User().GetUserAllInfoById(id)
-	// if user.Id == 0 {
-	// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.USER_NOT_EXIST, Message: common_err.GetMsg(common_err.USER_NOT_EXIST)})
-	// 	return
-	// }
-
-	// if encryption.GetMD5ByStr(pwd) != user.Password {
-	// 	c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
-	// 	return
-	// }
-
 	if _, ok := diskMap[path]; ok {
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 		return
@@ -266,34 +256,43 @@ func DeleteDisksUmount(c *gin.Context) {
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	for _, v := range diskInfo.Children {
-		service.MyService.Disk().UmountPointAndRemoveDir(v.Path)
+		if output, err := service.MyService.Disk().UmountPointAndRemoveDir(v.Path); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+			return
+		}
+
 		// delete data
 		service.MyService.Disk().DeleteMountPoint(v.Path, v.MountPoint)
 
-		// TODO - @tiger - implement proxy to shares service
-
-		// service.MyService.Shares().DeleteShareByPath(v.MountPoint)
+		if err := service.MyService.Shares().DeleteShare(v.MountPoint); err != nil {
+			logger.Error("error when deleting share by mount point", zap.Error(err), zap.String("mount point", v.MountPoint))
+		}
 	}
 
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	msg := notify.StorageMessage{}
-	msg.Action = "REMOVED"
-	msg.Path = path
-	msg.Volume = ""
-	msg.Size = 0
-	msg.Type = ""
+	message := map[string]interface{}{
+		"action": "REMOVED",
+		"path":   path,
+		"volume": "",
+		"size":   0,
+		"type":   "",
+	}
 
-	// TODO - @tiger - implement proxy to notify service
-	// service.MyService.Notify().SendStorageBySocket(msg)
+	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+	}
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
 }
 
 func DeleteDiskUSB(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
 	mountPoint := js["mount_point"]
 	if file.CheckNotExist(mountPoint) {
 		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
@@ -358,7 +357,10 @@ func FormatDiskType(c *gin.Context) {
 // @Router /disk/delpart [delete]
 func RemovePartition(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
 	path := js["path"]
 
 	if len(path) == 0 {
@@ -383,9 +385,17 @@ func RemovePartition(c *gin.Context) {
 // @Router /disk/storage [post]
 func PostDiskAddPartition(c *gin.Context) {
 	js := make(map[string]interface{})
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
 	path := js["path"].(string)
+
 	name := js["name"].(string)
+	if len(name) == 0 {
+		name = "Storage"
+	}
+
 	format := js["format"].(bool)
 
 	if len(path) == 0 {
@@ -397,25 +407,13 @@ func PostDiskAddPartition(c *gin.Context) {
 		return
 	}
 
-	// diskInfo := service.MyService.Disk().GetDiskInfo(path)
-
-	// if !file.CheckNotExist("/DATA/" + name) {
-	// 	// /mnt/name exist
-	// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.NAME_NOT_AVAILABLE, Message: common_err.GetMsg(common_err.NAME_NOT_AVAILABLE)})
-	// 	return
-	// }
 	diskMap[path] = "busying"
 
 	defer delete(diskMap, path)
 
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
-		// format := service.MyService.Disk().FormatDisk(path+"1", "ext4")
-		// if len(format) == 0 {
-		// 	delete(diskMap, path)
-		// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
-		// 	return
-		// }
+
 		output, err := service.MyService.Disk().AddPartition(path)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
@@ -423,50 +421,35 @@ func PostDiskAddPartition(c *gin.Context) {
 		}
 	}
 
-	// formatBool := true
-	// for formatBool {
-	// 	currentDisk = service.MyService.Disk().GetDiskInfo(path)
-	// 	if len(currentDisk.Children) > 0 {
-	// 		formatBool = false
-	// 		break
-	// 	}
-	// 	time.Sleep(time.Second)
-	// }
 	currentDisk = service.MyService.Disk().GetDiskInfo(path)
-	// if len(currentDisk.Children) != 1 {
-	// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_NEEDS_FORMAT, Message: common_err.GetMsg(common_err.DISK_NEEDS_FORMAT)})
-	// 	return
-	// }
-	fmt.Println(name)
-	if len(name) == 0 {
-		name = "Storage"
-	}
-	fmt.Println(name)
+
 	for i := 0; i < len(currentDisk.Children); i++ {
 		childrenName := currentDisk.Children[i].Label
 		if len(childrenName) == 0 {
-			// childrenName = name + "_" + currentDisk.Children[i].Name
 			childrenName = name + "_" + strconv.Itoa(i+1)
 		}
-		mountPath := "/mnt/" + childrenName
+		mountPoint := "/mnt/" + childrenName
 
-		// TODO - @tiger - imlement proxy to system service
+		logger.Info("checking if mount point exist", zap.String("mount point", mountPoint))
+		if empty, err := file.IsDirEmpty(mountPoint); err != nil {
+			message := err.Error()
+			logger.Error("error when trying to check if mount point is empty", zap.Error(err), zap.String("mount point", mountPoint))
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.NAME_NOT_AVAILABLE, Message: message})
+			return
+		} else if !empty {
+			message := "mount point is not empty"
+			logger.Error(message, zap.String("mount point", mountPoint))
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.NAME_NOT_AVAILABLE, Message: message})
+			return
+		}
 
-		// if !file.CheckNotExist(mountPath) {
-		// 	ls := service.MyService.System().GetDirPath(mountPath)
-		// 	if len(ls) > 0 {
-		// 		// exist
-		// 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.NAME_NOT_AVAILABLE, Message: common_err.GetMsg(common_err.NAME_NOT_AVAILABLE)})
-		// 		return
-		// 	}
-		// }
-		if err := service.MyService.Disk().MountDisk(currentDisk.Children[i].Path, mountPath); err != nil {
+		if err := service.MyService.Disk().MountDisk(currentDisk.Children[i].Path, mountPoint); err != nil {
 			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 			return
 		}
 
 		m := model2.Volume{}
-		m.MountPoint = mountPath
+		m.MountPoint = mountPoint
 		m.Path = currentDisk.Children[i].Path
 		m.UUID = currentDisk.Children[i].UUID
 		m.State = 0
@@ -478,16 +461,17 @@ func PostDiskAddPartition(c *gin.Context) {
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	msg := notify.StorageMessage{}
-	msg.Action = "ADDED"
-	msg.Path = currentDisk.Children[0].Path
-	msg.Volume = "/mnt/"
-	msg.Size = currentDisk.Children[0].Size
-	msg.Type = currentDisk.Children[0].Tran
+	message := map[string]interface{}{
+		"Action": "ADDED",
+		"Path":   currentDisk.Children[0].Path,
+		"Volume": "/mnt/",
+		"Size":   currentDisk.Children[0].Size,
+		"Type":   currentDisk.Children[0].Tran,
+	}
 
-	// TODO - @tiger - implement proxy to notify service
-
-	// service.MyService.Notify().SendStorageBySocket(msg)
+	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+	}
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
@@ -498,25 +482,20 @@ func PostDiskAddPartition(c *gin.Context) {
 // @Router /disk/format [post]
 func PostDiskFormat(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
+
+	// requires password from user to confirm the action
+	if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
+		c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+		return
+	}
+
 	path := js["path"]
 	t := "ext4"
 	volume := js["volume"]
-
-	// TODO - @tiger - implement proxy to user service
-
-	// id := c.GetHeader("user_id")
-	// pwd := js["password"]
-
-	// user := service.MyService.User().GetUserAllInfoById(id)
-	// if user.Id == 0 {
-	// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.USER_NOT_EXIST, Message: common_err.GetMsg(common_err.USER_NOT_EXIST)})
-	// 	return
-	// }
-	// if encryption.GetMD5ByStr(pwd) != user.Password {
-	// 	c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
-	// 	return
-	// }
 
 	if len(path) == 0 || len(t) == 0 {
 		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
@@ -553,7 +532,16 @@ func PostDiskFormat(c *gin.Context) {
 // @Router /disk/umount [post]
 func PostDiskUmount(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
+
+	// requires password from user to confirm the action
+	if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
+		c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+		return
+	}
 
 	path := js["path"]
 	mountPoint := js["volume"]
@@ -563,44 +551,34 @@ func PostDiskUmount(c *gin.Context) {
 		return
 	}
 
-	// TODO - @tiger - implement proxy to user service
-
-	// id := c.GetHeader("user_id")
-	// pwd := js["password"]
-
-	// user := service.MyService.User().GetUserAllInfoById(id)
-	// if user.Id == 0 {
-	// 	c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.USER_NOT_EXIST, Message: common_err.GetMsg(common_err.USER_NOT_EXIST)})
-	// 	return
-	// }
-	// if encryption.GetMD5ByStr(pwd) != user.Password {
-	// 	c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
-	// 	return
-	// }
-
 	if _, ok := diskMap[path]; ok {
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 		return
 	}
 
-	service.MyService.Disk().UmountPointAndRemoveDir(path)
+	if output, err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+		return
+	}
+
 	// delete data
 	service.MyService.Disk().DeleteMountPoint(path, mountPoint)
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	msg := notify.StorageMessage{}
-	msg.Action = "REMOVED"
-	msg.Path = path
-	msg.Volume = mountPoint
-	msg.Size = 0
-	msg.Type = ""
+	message := map[string]interface{}{
+		"Action": "REMOVED",
+		"Path":   path,
+		"Volume": mountPoint,
+		"Size":   0,
+		"Type":   "",
+	}
 
-	// TODO - @tiger - implement proxy to notify service
+	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+	}
 
-	// service.MyService.Notify().SendStorageBySocket(msg)
-
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
 // @Summary confirm delete disk
@@ -643,4 +621,14 @@ func GetDiskCheck(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+}
+
+func isDiskSupported(d *model1.LSBLKModel) bool {
+	return d.Tran == "sata" ||
+		d.Tran == "nvme" ||
+		d.Tran == "spi" ||
+		d.Tran == "sas" ||
+		strings.Contains(d.SubSystems, "virtio") ||
+		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
+		(d.Tran == "ata" && d.Type == "disk")
 }

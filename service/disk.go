@@ -38,7 +38,7 @@ type DiskService interface {
 	RemoveLSBLKCache()
 	SaveMountPoint(m model2.Volume)
 	SmartCTL(path string) model.SmartctlA
-	UmountPointAndRemoveDir(path string) ([]string, error)
+	UmountPointAndRemoveDir(path string) (string, error)
 	UmountUSB(path string) error
 	UpdateMountPoint(m model2.Volume)
 }
@@ -98,8 +98,8 @@ func (d *diskService) FormatDisk(path, format string) ([]string, error) {
 }
 
 // 移除挂载点,删除目录
-func (d *diskService) UmountPointAndRemoveDir(path string) ([]string, error) {
-	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
+func (d *diskService) UmountPointAndRemoveDir(path string) (string, error) {
+	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
 }
 
 // 删除分区
@@ -231,7 +231,7 @@ func (d *diskService) MountDisk(path, mountPoint string) error {
 	}); err != nil {
 		return err
 	} else if len(mountInfoList) > 0 {
-		logger.Info("already mounted", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info("already mounted", zap.String("path", path), zap.String("mount point", mountPoint))
 		return nil
 	}
 
@@ -268,28 +268,28 @@ func (d *diskService) DeleteMountPoint(path, mountPoint string) {
 		}
 		return true, false
 	}); err != nil {
-		logger.Error("failed to checking for existing mount", zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Error("failed to checking for existing mount", zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint))
 		return
 	} else if len(mountInfoList) == 0 {
-		logger.Info("already umounted", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info("already umounted", zap.String("path", path), zap.String("mount point", mountPoint))
 	} else {
 		output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
 		if err != nil {
-			logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mountPoint", mountPoint))
+			logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint))
 			return
 		}
 
-		logger.Info(output, zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info(output, zap.String("path", path), zap.String("mount point", mountPoint))
 	}
 
 	var existingVolumes []model2.Volume
 
 	if result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Find(&existingVolumes); result.Error != nil {
-		logger.Error("error when finding the volume", zap.Error(result.Error), zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Error("error when finding the volume", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
 	} else if result.RowsAffected <= 0 {
-		logger.Info("no volume found", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info("no volume found", zap.String("path", path), zap.String("mount point", mountPoint))
 	} else {
-		logger.Info("deleting volume from database", zap.String("path", path), zap.String("mountPoint", mountPoint))
+		logger.Info("deleting volume from database", zap.String("path", path), zap.String("mount point", mountPoint))
 		d.db.Delete(&existingVolumes)
 	}
 }

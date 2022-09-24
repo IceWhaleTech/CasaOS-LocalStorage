@@ -3,7 +3,7 @@ module github.com/IceWhaleTech/CasaOS-LocalStorage
 go 1.19
 
 require (
-	github.com/IceWhaleTech/CasaOS v0.3.6-alpha.1.0.20220916034742-582f85c3ba58
+	github.com/IceWhaleTech/CasaOS v0.3.6-alpha.1.0.20220923163414-730aee35919a
 	github.com/IceWhaleTech/CasaOS-Gateway v0.3.6
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/getkin/kin-openapi v0.100.0

@@ -29,7 +29,7 @@ func (s *LocalStorageService) RemoveFromFStab(mountpoint string) error {
 	ft := fstab.Get()
 
 	if err := ft.RemoveByMountPoint(mountpoint, false); err != nil {
-		logger.Error("Error when trying to unpersist mount", zap.Error(err), zap.Any("mountpoint", mountpoint))
+		logger.Error("Error when trying to unpersist mount", zap.Error(err), zap.String("mount point", mountpoint))
 		return err
 	}
 	return nil

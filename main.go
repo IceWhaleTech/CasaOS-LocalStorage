@@ -106,7 +106,7 @@ func ensureDefaultMergePoint() {
 	mountPoint := "/DATA"
 	sourceBasePath := constants.DefaultFilePath
 
-	logger.Info("ensure default merge point exists", zap.String("mountPoint", mountPoint), zap.String("sourceBasePath", sourceBasePath))
+	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
 
 	existingMerges, err := service.MyService.LocalStorage().GetMergeAll(&mountPoint)
 	if err != nil {
@@ -116,7 +116,7 @@ func ensureDefaultMergePoint() {
 	// check if /DATA is already a merge point
 	if len(existingMerges) > 0 {
 		if len(existingMerges) > 1 {
-			logger.Error("more than one merge point with the same mount point found", zap.String("mountPoint", mountPoint))
+			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
 		}
 		return
 	}
@@ -127,9 +127,9 @@ func ensureDefaultMergePoint() {
 		SourceBasePath: &sourceBasePath,
 	}); err != nil {
 		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
-			logger.Info(err.Error(), zap.String("mountPoint", mountPoint))
+			logger.Info(err.Error(), zap.String("mount point", mountPoint))
 		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			logger.Error("Mount point "+mountPoint+" is not empty - disabling MergerFS", zap.String("mountPoint", mountPoint))
+			logger.Error("Mount point "+mountPoint+" is not empty - disabling MergerFS", zap.String("mount point", mountPoint))
 			config.ServerInfo.EnableMergerFS = "False"
 		} else {
 			panic(err)
