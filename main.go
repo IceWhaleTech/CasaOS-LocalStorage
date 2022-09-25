@@ -121,7 +121,7 @@ func ensureDefaultMergePoint() {
 		return
 	}
 
-	if err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
+	if _, err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
 		FSType:         fs.MergerFSFullName,
 		MountPoint:     mountPoint,
 		SourceBasePath: &sourceBasePath,

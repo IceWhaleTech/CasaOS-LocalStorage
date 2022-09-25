@@ -88,7 +88,7 @@ paths:
               $ref: "#/components/schemas/Merge"
       responses:
         "200":
-          $ref: "#/components/responses/UpdateMergeResponseOK"
+          $ref: "#/components/responses/SetMergeResponseOK"
         "503":
           $ref: "#/components/responses/ResponseServiceUnavailable"
 
@@ -241,7 +241,7 @@ components:
                     items:
                       $ref: "#/components/schemas/Merge"
 
-    UpdateMergeResponseOK:
+    SetMergeResponseOK:
       description: OK
       content:
         application/json:

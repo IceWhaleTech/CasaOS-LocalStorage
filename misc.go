@@ -92,31 +92,9 @@ func sendDiskBySocket() {
 }
 
 func sendUSBBySocket() {
-	usbList := service.MyService.Disk().LSBLK(false)
-	statusList := []model.USBDriveStatus{}
-	for _, v := range usbList {
-		if v.Tran == "usb" {
-			isMount := false
-			temp := model.USBDriveStatus{}
-			temp.Model = v.Model
-			temp.Name = v.Name
-			temp.Size = v.Size
-			for _, child := range v.Children {
-				if len(child.MountPoint) > 0 {
-					isMount = true
-					avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
-					temp.Avail += avail
-
-				}
-			}
-			if isMount {
-				statusList = append(statusList, temp)
-			}
-		}
+	message := map[string]interface{}{
+		"sys_usb": service.MyService.Disk().GetUSBDriveStatusList(),
 	}
-
-	message := make(map[string]interface{})
-	message["sys_usb"] = statusList
 
 	if err := service.MyService.Notify().SendSystemStatusNotify(message); err != nil {
 		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))

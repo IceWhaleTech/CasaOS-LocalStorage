@@ -1,16 +1,18 @@
 package v1
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
-	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
+
+const messagePathSysUSB = "sys_usb"
 
 // @Summary Turn off usb auto-mount
 // @Produce  application/json
@@ -30,34 +32,17 @@ func PutSystemUSBAutoMount(c *gin.Context) {
 		service.MyService.USB().UpdateUSBAutoMount("False")
 		service.MyService.USB().ExecUSBAutoMountShell("False")
 	}
-	go func() {
-		usbList := service.MyService.Disk().LSBLK(false)
-		usb := []model1.USBDriveStatus{}
-		for _, v := range usbList {
-			if v.Tran == "usb" {
-				isMount := false
-				temp := model1.USBDriveStatus{}
-				temp.Model = v.Model
-				temp.Name = v.Name
-				temp.Size = v.Size
-				for _, child := range v.Children {
-					if len(child.MountPoint) > 0 {
-						isMount = true
-						avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
-						temp.Avail += avail
 
-					}
-				}
-				if isMount {
-					usb = append(usb, temp)
-				}
-			}
+	go func() {
+		message := map[string]interface{}{
+			"data": service.MyService.Disk().GetUSBDriveStatusList(),
 		}
 
-		// TODO - @tiger - implement proxy to notify service
-
-		// service.MyService.Notify().SendUSBInfoBySocket(usb)
+		if err := service.MyService.Notify().SendNotify(messagePathSysUSB, message); err != nil {
+			logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
+		}
 	}()
+
 	c.JSON(common_err.SUCCESS,
 		model.Result{
 			Success: common_err.SUCCESS,
@@ -77,33 +62,17 @@ func GetSystemUSBAutoMount(c *gin.Context) {
 	if strings.ToLower(config.ServerInfo.USBAutoMount) != "true" {
 		state = "False"
 	}
+
 	go func() {
-		usbList := service.MyService.Disk().LSBLK(false)
-		usb := []model1.USBDriveStatus{}
-		for _, v := range usbList {
-			if v.Tran == "usb" {
-				isMount := false
-				temp := model1.USBDriveStatus{}
-				temp.Model = v.Model
-				temp.Name = v.Name
-				temp.Size = v.Size
-				for _, child := range v.Children {
-					if len(child.MountPoint) > 0 {
-						isMount = true
-						avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
-						temp.Avail += avail
-
-					}
-				}
-				if isMount {
-					usb = append(usb, temp)
-				}
-			}
+		message := map[string]interface{}{
+			"data": service.MyService.Disk().GetUSBDriveStatusList(),
 		}
-		// TODO - @tiger - implement proxy to notify service
 
-		// service.MyService.Notify().SendUSBInfoBySocket(usb)
+		if err := service.MyService.Notify().SendNotify(messagePathSysUSB, message); err != nil {
+			logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
+		}
 	}()
+
 	c.JSON(common_err.SUCCESS,
 		model.Result{
 			Success: common_err.SUCCESS,

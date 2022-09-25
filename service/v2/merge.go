@@ -91,10 +91,10 @@ func (s *LocalStorageService) GetMergeAll(mountPoint *string) ([]model2.Merge, e
 	return merges, nil
 }
 
-func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
+func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, error) {
 	// check if the mount point exists
 	if _, err := os.Stat(merge.MountPoint); err != nil {
-		return ErrMergeMountPointDoesNotExist
+		return nil, ErrMergeMountPointDoesNotExist
 	}
 
 	// check if a merge already exists in database by mount point
@@ -102,7 +102,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 
 	mergeAlreadyExists := false
 	if result := s._db.Where(&model2.Merge{MountPoint: merge.MountPoint}).Limit(1).Find(&existingMerge); result.Error != nil {
-		return result.Error
+		return nil, result.Error
 	} else if result.RowsAffected > 0 {
 		mergeAlreadyExists = true
 	}
@@ -131,12 +131,12 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 				zap.String("sourceBasePath", sourceBasePath),
 				zap.String("merge.MountPoint", merge.MountPoint),
 			)
-			return ErrMergeMountPointSourceConflict
+			return nil, ErrMergeMountPointSourceConflict
 		}
 
 		// create source path if it does not exists
 		if err := file.IsNotExistMkDir(sourceBasePath); err != nil {
-			return err
+			return nil, err
 		}
 
 		sources = append(sources, sourceBasePath)
@@ -163,7 +163,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 				zap.Any("sourceVolume.MountPoint", sourceVolume.MountPoint),
 				zap.Any("merge.MountPoint", merge.MountPoint),
 			)
-			return ErrMergeMountPointSourceConflict
+			return nil, ErrMergeMountPointSourceConflict
 		}
 
 		sources = append(sources, sourceVolume.MountPoint)
@@ -173,9 +173,9 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	if _, err := mergerfs.ListValues(merge.MountPoint); err != nil {
 		// check if the mount point is empty before creating a new mergerfs mount
 		if bool, err := file.IsDirEmpty(merge.MountPoint); err != nil {
-			return err
+			return nil, err
 		} else if !bool {
-			return ErrMountPointIsNotEmpty
+			return nil, ErrMountPointIsNotEmpty
 		}
 
 		source := strings.Join(sources, ":")
@@ -184,19 +184,19 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 			Fstype:     &merge.FSType,
 			Source:     &source,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		// if it is already a merge point, check if the mount point is a mergerfs mount with the same sources
 		existingSources, err := mergerfs.GetSource(merge.MountPoint)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if !utils.CompareStringSlices(sources, existingSources) {
 			// update the mergerfs sources if different sources
 			if err := mergerfs.SetSource(merge.MountPoint, sources); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -204,28 +204,30 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) error {
 	if mergeAlreadyExists {
 		// start association mode
 		if err := s._db.Model(&existingMerge).Association(model2.MergeSourceVolumes).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if merge.SourceBasePath != nil && *merge.SourceBasePath != *existingMerge.SourceBasePath {
 			existingMerge.SourceBasePath = merge.SourceBasePath
 			if err := s._db.Model(&existingMerge).Update(model.MergeSourceBasePath, merge.SourceBasePath).Error; err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		if merge.SourceVolumes != nil {
 			if err := s._db.Model(&existingMerge).Association(model2.MergeSourceVolumes).Replace(merge.SourceVolumes); err != nil {
-				return err
+				return nil, err
 			}
 		}
-	} else {
-		if err := s._db.Create(merge).Error; err != nil {
-			return err
-		}
+
+		return &existingMerge, nil
 	}
 
-	return nil
+	if err := s._db.Create(merge).Error; err != nil {
+		return nil, err
+	}
+
+	return merge, nil
 }
 
 func (s *LocalStorageService) CheckMergeMount() {
@@ -259,7 +261,7 @@ func (s *LocalStorageService) CheckMergeMount() {
 		// mount if not mounted yet
 		if mountNeeded {
 			logger.Info("merge not found - mount needed", zap.Any("merge", mergeList[i]))
-			if err := s.SetMerge(&mergeList[i]); err != nil {
+			if _, err := s.SetMerge(&mergeList[i]); err != nil {
 				logger.Error("failed to create merge", zap.Error(err))
 			}
 			continue
@@ -282,7 +284,7 @@ func (s *LocalStorageService) CheckMergeMount() {
 				zap.String("currentSourceList", strings.Join(currentSourceList, ",")),
 				zap.String("expectSourceList", strings.Join(expectSourceList, ",")))
 
-			if err := s.SetMerge(&mergeList[i]); err != nil {
+			if _, err := s.SetMerge(&mergeList[i]); err != nil {
 				logger.Error("failed to set merge sources", zap.Any("merge", mergeList[i]), zap.Error(err))
 			}
 		}

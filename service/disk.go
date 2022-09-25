@@ -33,6 +33,7 @@ type DiskService interface {
 	GetDiskInfoByPath(path string) *disk.UsageStat
 	GetPlugInDisk() ([]string, error)
 	GetSerialAll() []model2.Volume
+	GetUSBDriveStatusList() []model.USBDriveStatus
 	LSBLK(isUseCache bool) []model.LSBLKModel
 	MountDisk(path, volume string) error
 	RemoveLSBLKCache()
@@ -348,6 +349,30 @@ func (d *diskService) CheckSerialDiskMount() {
 		}
 	}
 	d.RemoveLSBLKCache()
+}
+
+func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
+	blockList := d.LSBLK(false)
+	statusList := []model.USBDriveStatus{}
+	for _, v := range blockList {
+		if v.Tran != "usb" {
+			continue
+		}
+
+		isMount := false
+		status := model.USBDriveStatus{Model: v.Model, Name: v.Name, Size: v.Size}
+		for _, child := range v.Children {
+			if len(child.MountPoint) > 0 {
+				isMount = true
+				avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
+				status.Avail += avail
+			}
+		}
+		if isMount {
+			statusList = append(statusList, status)
+		}
+	}
+	return statusList
 }
 
 func NewDiskService(db *gorm.DB) DiskService {

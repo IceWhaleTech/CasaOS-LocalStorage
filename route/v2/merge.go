@@ -72,18 +72,23 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	}
 
 	// set merge
-	if err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
+	merge := &model2.Merge{
 		FSType:         fstype,
 		MountPoint:     m.MountPoint,
 		SourceBasePath: m.SourceBasePath,
 		SourceVolumes:  sourceVolumes,
-	}); err != nil {
-		// TODO - return different HTTP status code based on the error
+	}
+	merge, err := service.MyService.LocalStorage().SetMerge(merge)
+	if err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
-	return nil
+	result := MergeAdapterOut(*merge)
+
+	return ctx.JSON(http.StatusOK, codegen.SetMergeResponseOK{
+		Data: &result,
+	})
 }
 
 func MergeAdapterOut(m model2.Merge) codegen.Merge {

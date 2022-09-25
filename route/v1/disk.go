@@ -26,6 +26,14 @@ const messagePathStorageStatus = "storage_status"
 
 var diskMap = make(map[string]string)
 
+type StorageMessage struct {
+	Type   string `json:"type"`   // sata,usb
+	Action string `json:"action"` // remove add
+	Path   string `json:"path"`
+	Volume string `json:"volume"`
+	Size   uint64 `json:"size"`
+}
+
 // @Summary disk list
 // @Produce  application/json
 // @Accept application/json
@@ -272,17 +280,21 @@ func DeleteDisksUmount(c *gin.Context) {
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	message := map[string]interface{}{
-		"action": "REMOVED",
-		"path":   path,
-		"volume": "",
-		"size":   0,
-		"type":   "",
-	}
+	go func() {
+		message := map[string]interface{}{
+			"data": StorageMessage{
+				Action: "REMOVED",
+				Path:   path,
+				Volume: "",
+				Size:   0,
+				Type:   "",
+			},
+		}
 
-	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
-		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
-	}
+		if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+			logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+		}
+	}()
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
 }
@@ -461,17 +473,21 @@ func PostDiskAddPartition(c *gin.Context) {
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	message := map[string]interface{}{
-		"Action": "ADDED",
-		"Path":   currentDisk.Children[0].Path,
-		"Volume": "/mnt/",
-		"Size":   currentDisk.Children[0].Size,
-		"Type":   currentDisk.Children[0].Tran,
-	}
+	go func() {
+		message := map[string]interface{}{
+			"data": StorageMessage{
+				Action: "ADDED",
+				Path:   currentDisk.Children[0].Path,
+				Volume: "/mnt/",
+				Size:   currentDisk.Children[0].Size,
+				Type:   currentDisk.Children[0].Tran,
+			},
+		}
 
-	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
-		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
-	}
+		if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+			logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+		}
+	}()
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
@@ -566,17 +582,21 @@ func PostDiskUmount(c *gin.Context) {
 	service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
-	message := map[string]interface{}{
-		"Action": "REMOVED",
-		"Path":   path,
-		"Volume": mountPoint,
-		"Size":   0,
-		"Type":   "",
-	}
+	go func() {
+		message := map[string]interface{}{
+			"data": StorageMessage{
+				Action: "REMOVED",
+				Path:   path,
+				Volume: mountPoint,
+				Size:   0,
+				Type:   "",
+			},
+		}
 
-	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
-		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
-	}
+		if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+			logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+		}
+	}()
 
 	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
