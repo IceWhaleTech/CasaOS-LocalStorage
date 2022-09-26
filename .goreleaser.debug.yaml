@@ -5,6 +5,7 @@ before:
   hooks:
     - go generate
     - go mod tidy
+    - go test -v ./...
 builds:
   - id: casaos-local-storage-amd64
     binary: build/sysroot/usr/bin/casaos-local-storage
@@ -131,15 +132,15 @@ archives:
     files:
       - build/sysroot/etc/**/*
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 snapshot:
   name_template: "{{ incpatch .Version }}-snapshot"
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
 release:
   github:
     owner: IceWhaleTech

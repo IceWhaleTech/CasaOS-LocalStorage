@@ -5,6 +5,7 @@ before:
   hooks:
     - go generate
     - go mod tidy
+    - go test -v ./...
 builds:
   - id: casaos-local-storage-amd64
     binary: build/sysroot/usr/bin/casaos-local-storage

@@ -442,7 +442,13 @@ func PostDiskAddPartition(c *gin.Context) {
 		}
 		mountPoint := "/mnt/" + childrenName
 
-		logger.Info("checking if mount point exist", zap.String("mount point", mountPoint))
+		if err := file.IsNotExistMkDir(mountPoint); err != nil {
+			message := "error when creating mount point"
+			logger.Error("error when creating mount point", zap.Error(err), zap.String("mount point", mountPoint))
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: message})
+			return
+		}
+
 		if empty, err := file.IsDirEmpty(mountPoint); err != nil {
 			message := err.Error()
 			logger.Error("error when trying to check if mount point is empty", zap.Error(err), zap.String("mount point", mountPoint))
