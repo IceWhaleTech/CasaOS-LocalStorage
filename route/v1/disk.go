@@ -54,10 +54,12 @@ func GetDiskList(c *gin.Context) {
 		data := []model1.USBDriveStatus{}
 		for _, v := range list {
 			if v.Tran == "usb" {
-				temp := model1.USBDriveStatus{}
-				temp.Model = v.Model
-				temp.Name = v.Name
-				temp.Size = v.Size
+				temp := model1.USBDriveStatus{
+					Model: v.Model,
+					Name:  v.Name,
+					Size:  v.Size,
+				}
+
 				for _, child := range v.Children {
 					if len(child.MountPoint) > 0 {
 						avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
@@ -79,72 +81,90 @@ func GetDiskList(c *gin.Context) {
 	findSystem := 0
 
 	disks := []model1.Drive{}
-	storage := []model1.Storage{}
+	storages := []model1.Storage{}
 	avail := []model1.Drive{}
+
 	for i := 0; i < len(list); i++ {
-		disk := model1.Drive{}
+		disk := model1.Drive{
+			Serial:         list[i].Serial,
+			Name:           list[i].Name,
+			Size:           list[i].Size,
+			Path:           list[i].Path,
+			Model:          list[i].Model,
+			ChildrenNumber: len(list[i].Children),
+		}
+
 		if list[i].Rota {
 			disk.DiskType = "HDD"
 		} else {
 			disk.DiskType = "SSD"
 		}
-		disk.Serial = list[i].Serial
-		disk.Name = list[i].Name
-		disk.Size = list[i].Size
-		disk.Path = list[i].Path
-		disk.Model = list[i].Model
-		disk.ChildrenNumber = len(list[i].Children)
+
 		if len(list[i].Children) > 0 && findSystem == 0 {
 			for j := 0; j < len(list[i].Children); j++ {
 				if len(list[i].Children[j].Children) > 0 {
 					for _, v := range list[i].Children[j].Children {
-						if v.MountPoint == "/" {
-							stor := model1.Storage{}
-							stor.MountPoint = v.MountPoint
-							stor.Size = v.FSSize
-							stor.Avail = v.FSAvail
-							stor.Path = v.Path
-							stor.Type = v.FsType
-							stor.DriveName = "System"
-							disk.Model = "System"
-							if strings.Contains(v.SubSystems, "mmc") {
-								disk.DiskType = "MMC"
-							} else if strings.Contains(v.SubSystems, "usb") {
-								disk.DiskType = "USB"
-							}
-							disk.Health = "true"
-
-							disks = append(disks, disk)
-							storage = append(storage, stor)
-							findSystem = 1
-							break
+						if v.MountPoint != "/" {
+							continue
 						}
-					}
-				} else {
-					if list[i].Children[j].MountPoint == "/" {
-						stor := model1.Storage{}
-						stor.MountPoint = list[i].Children[j].MountPoint
-						stor.Size = list[i].Children[j].FSSize
-						stor.Avail = list[i].Children[j].FSAvail
-						stor.Path = list[i].Children[j].Path
-						stor.Type = list[i].Children[j].FsType
-						stor.DriveName = "System"
+
+						stor := model1.Storage{
+							MountPoint:  v.MountPoint,
+							Size:        v.FSSize,
+							Avail:       v.FSAvail,
+							Path:        v.Path,
+							Type:        v.FsType,
+							DriveName:   "System",
+							PersistedIn: service.MyService.Disk().GetPersistentType(v.Path),
+						}
+
 						disk.Model = "System"
-						if strings.Contains(list[i].Children[j].SubSystems, "mmc") {
+						if strings.Contains(v.SubSystems, "mmc") {
 							disk.DiskType = "MMC"
-						} else if strings.Contains(list[i].Children[j].SubSystems, "usb") {
+						} else if strings.Contains(v.SubSystems, "usb") {
 							disk.DiskType = "USB"
 						}
 						disk.Health = "true"
 
 						disks = append(disks, disk)
-						storage = append(storage, stor)
+						storages = append(storages, stor)
 						findSystem = 1
 						break
 					}
+
+					continue
 				}
+
+				if list[i].Children[j].MountPoint == "/" {
+					continue
+				}
+
+				stor := model1.Storage{
+					MountPoint:  list[i].Children[j].MountPoint,
+					Size:        list[i].Children[j].FSSize,
+					Avail:       list[i].Children[j].FSAvail,
+					Path:        list[i].Children[j].Path,
+					Type:        list[i].Children[j].FsType,
+					DriveName:   "System",
+					PersistedIn: service.MyService.Disk().GetPersistentType(list[i].Children[j].Path),
+				}
+
+				disk.Model = "System"
+				if strings.Contains(list[i].Children[j].SubSystems, "mmc") {
+					disk.DiskType = "MMC"
+				} else if strings.Contains(list[i].Children[j].SubSystems, "usb") {
+					disk.DiskType = "USB"
+				}
+				disk.Health = "true"
+
+				disks = append(disks, disk)
+				storages = append(storages, stor)
+				findSystem = 1
+
+				break
 			}
 		}
+
 		if findSystem == 1 {
 			findSystem++
 			continue
@@ -162,14 +182,16 @@ func GetDiskList(c *gin.Context) {
 		isAvail := true
 		for _, v := range list[i].Children {
 			if v.MountPoint != "" {
-				stor := model1.Storage{}
-				stor.MountPoint = v.MountPoint
-				stor.Size = v.FSSize
-				stor.Avail = v.FSAvail
-				stor.Path = v.Path
-				stor.Type = v.FsType
-				stor.DriveName = list[i].Name
-				storage = append(storage, stor)
+				stor := model1.Storage{
+					MountPoint:  v.MountPoint,
+					Size:        v.FSSize,
+					Avail:       v.FSAvail,
+					Path:        v.Path,
+					Type:        v.FsType,
+					DriveName:   list[i].Name,
+					PersistedIn: service.MyService.Disk().GetPersistentType(v.Path),
+				}
+				storages = append(storages, stor)
 				isAvail = false
 			}
 		}
@@ -187,7 +209,7 @@ func GetDiskList(c *gin.Context) {
 
 	data := map[string]interface{}{
 		"disks":   disks,
-		"storage": storage,
+		"storage": storages,
 		"avail":   avail,
 	}
 

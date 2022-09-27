@@ -157,6 +157,21 @@ func (f *FStab) GetEntryByMountPoint(mountpoint string) (*Entry, error) {
 	return nil, nil
 }
 
+func (f *FStab) GetEntryBySource(source string) (*Entry, error) {
+	entries, err := f.GetEntries()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if entry.Source == source {
+			return entry, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func Get() *FStab {
 	if _fstab == nil {
 		_fstab = &FStab{

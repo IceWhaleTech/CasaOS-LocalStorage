@@ -74,13 +74,14 @@ type USBChildren struct {
 }
 
 type Storage struct {
-	MountPoint string `json:"mount_point"`
-	Size       string `json:"size"`
-	Avail      string `json:"avail"` // 可用空间
-	Type       string `json:"type"`
-	Path       string `json:"path"`
-	DriveName  string `json:"drive_name"`
-	Label      string `json:"label"`
+	MountPoint  string `json:"mount_point"`
+	Size        string `json:"size"`
+	Avail       string `json:"avail"` // 可用空间
+	Type        string `json:"type"`
+	Path        string `json:"path"`
+	DriveName   string `json:"drive_name"`
+	Label       string `json:"label"`
+	PersistedIn string `json:"persisted_in"` // none, fstab, casaos
 }
 type Storages struct {
 	DiskName string    `json:"disk_name"`

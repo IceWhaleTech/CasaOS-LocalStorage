@@ -1,12 +1,11 @@
-/*
- * @Author: LinkLeong link@icewhale.com
- * @Date: 2022-07-11 16:02:29
- * @LastEditors: LinkLeong
- * @LastEditTime: 2022-08-17 19:14:50
- * @FilePath: /CasaOS/route/v1/storage.go
- * @Description:
- * @Website: https://www.casaos.io
- * Copyright (c) 2022 by icewhale, All Rights Reserved.
+/*@Author: LinkLeong link@icewhale.com
+ *@Date: 2022-07-11 16:02:29
+ *@LastEditors: LinkLeong
+ *@LastEditTime: 2022-08-17 19:14:50
+ *@FilePath: /CasaOS/route/v1/storage.go
+ *@Description:
+ *@Website: https://www.casaos.io
+ *Copyright (c) 2022 by icewhale, All Rights Reserved.
  */
 package v1
 
@@ -27,15 +26,14 @@ func GetStorageList(c *gin.Context) {
 	storages := []model1.Storages{}
 	disks := service.MyService.Disk().LSBLK(false)
 	diskNumber := 1
-	children := 1
-	findSystem := 0
+	foundSystem := false
 	for _, d := range disks {
 		if d.Tran == "usb" {
 			continue
 		}
 
 		tempSystemDisk := false
-		children = 1
+		children := 1
 		tempDisk := model1.Storages{
 			DiskName: d.Model,
 			Path:     d.Path,
@@ -54,31 +52,33 @@ func GetStorageList(c *gin.Context) {
 				continue
 			}
 
-			if findSystem == 0 {
+			if !foundSystem {
 				if v.MountPoint == "/" {
 					tempDisk.DiskName = "System"
-					findSystem = 1
+					foundSystem = true
 					tempSystemDisk = true
 				}
-				if len(v.Children) > 0 {
-					for _, c := range v.Children {
-						if c.MountPoint == "/" {
-							tempDisk.DiskName = "System"
-							findSystem = 1
-							tempSystemDisk = true
-							break
-						}
+
+				for _, c := range v.Children {
+					if c.MountPoint == "/" {
+						tempDisk.DiskName = "System"
+						foundSystem = true
+						tempSystemDisk = true
+						break
 					}
 				}
 			}
 
-			stor := model1.Storage{}
-			stor.MountPoint = v.MountPoint
-			stor.Size = v.FSSize
-			stor.Avail = v.FSAvail
-			stor.Path = v.Path
-			stor.Type = v.FsType
-			stor.DriveName = v.Name
+			stor := model1.Storage{
+				MountPoint:  v.MountPoint,
+				Size:        v.FSSize,
+				Avail:       v.FSAvail,
+				Path:        v.Path,
+				Type:        v.FsType,
+				DriveName:   v.Name,
+				PersistedIn: service.MyService.Disk().GetPersistentType(v.Path),
+			}
+
 			if len(v.Label) == 0 {
 				if stor.MountPoint == "/" {
 					stor.Label = "System"
@@ -86,29 +86,31 @@ func GetStorageList(c *gin.Context) {
 					stor.Label = filepath.Base(stor.MountPoint)
 				}
 
-				children += 1
+				children++
 			} else {
 				stor.Label = v.Label
 			}
 			storageArr = append(storageArr, stor)
 		}
 
-		if len(storageArr) > 0 {
-			if tempSystemDisk && len(system) > 0 {
-				tempStorageArr := []model1.Storage{}
-				for i := 0; i < len(storageArr); i++ {
-					if storageArr[i].MountPoint != "/boot/efi" && storageArr[i].Type != "swap" {
-						tempStorageArr = append(tempStorageArr, storageArr[i])
-					}
+		if len(storageArr) == 0 {
+			continue
+		}
+
+		if tempSystemDisk && len(system) > 0 {
+			tempStorageArr := []model1.Storage{}
+			for i := 0; i < len(storageArr); i++ {
+				if storageArr[i].MountPoint != "/boot/efi" && storageArr[i].Type != "swap" {
+					tempStorageArr = append(tempStorageArr, storageArr[i])
 				}
-				tempDisk.Children = tempStorageArr
-				storages = append(storages, tempDisk)
-				diskNumber += 1
-			} else if !tempSystemDisk {
-				tempDisk.Children = storageArr
-				storages = append(storages, tempDisk)
-				diskNumber += 1
 			}
+			tempDisk.Children = tempStorageArr
+			storages = append(storages, tempDisk)
+			diskNumber++
+		} else if !tempSystemDisk {
+			tempDisk.Children = storageArr
+			storages = append(storages, tempDisk)
+			diskNumber++
 		}
 	}
 

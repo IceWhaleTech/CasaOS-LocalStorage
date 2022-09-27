@@ -64,8 +64,9 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 					sourceVolumes = append(sourceVolumes, &allVolumes[i])
 				}
 			}
+
 			if !volumeFound {
-				message := "volume " + volumePath + " not found, check if the volume has a valid partition"
+				message := "volume " + volumePath + " not found, or it is not a CasaOS storage. Consider adding it to CasaOS first."
 				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 			}
 		}

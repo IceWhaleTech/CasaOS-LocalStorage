@@ -12,6 +12,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/moby/sys/mountinfo"
 
@@ -31,6 +32,7 @@ type DiskService interface {
 	FormatDisk(path, format string) ([]string, error)
 	GetDiskInfo(path string) model.LSBLKModel
 	GetDiskInfoByPath(path string) *disk.UsageStat
+	GetPersistentType(path string) string
 	GetPlugInDisk() ([]string, error)
 	GetSerialAll() []model2.Volume
 	GetUSBDriveStatusList() []model.USBDriveStatus
@@ -43,9 +45,16 @@ type DiskService interface {
 	UmountUSB(path string) error
 	UpdateMountPoint(m model2.Volume)
 }
+
 type diskService struct {
 	db *gorm.DB
 }
+
+const (
+	PersistentTypeNone   = "none"
+	PersistentTypeFStab  = "fstab"
+	PersistentTypeCasaOS = "casaos"
+)
 
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
@@ -299,6 +308,27 @@ func (d *diskService) GetSerialAll() []model2.Volume {
 	var m []model2.Volume
 	d.db.Find(&m)
 	return m
+}
+
+func (d *diskService) GetPersistentType(path string) string {
+	// check if path is in database
+	var m model2.Volume
+
+	if result := d.db.Where(&model2.Volume{Path: path}).Limit(1).Find(&m); result.Error != nil {
+		logger.Error("error when finding the volume by path in database", zap.Error(result.Error), zap.String("path", path))
+	} else if result.RowsAffected > 0 {
+		return PersistentTypeCasaOS
+	}
+
+	// check if it is in fstab
+	if entry, err := fstab.Get().GetEntryBySource(path); err != nil {
+		logger.Error("error when finding the volume by path in fstab", zap.Error(err), zap.String("path", path))
+	} else if entry != nil {
+		return PersistentTypeFStab
+	}
+
+	// return none if not found
+	return PersistentTypeNone
 }
 
 func (d *diskService) CheckSerialDiskMount() {

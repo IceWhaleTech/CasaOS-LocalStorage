@@ -389,7 +389,7 @@ components:
           type: array
           items:
             type: string
-            example: /dev/sdb
+            example: /dev/sdb_1
         created_at:
           type: string
           readOnly: true
@@ -444,13 +444,13 @@ components:
           example: 5c682e86-cec3-4761-9350-8e1a0c2d1ae9
         path:
           type: string
-          example: /dev/sdb
+          example: /dev/sdb1
         state:
           type: integer
           description: (TODO)
         mount_point:
           type: string
-          example: /mnt/sdb
+          example: /mnt/sdb_1
         created_at:
           type: string
           readOnly: true
