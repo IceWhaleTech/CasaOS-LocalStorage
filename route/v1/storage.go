@@ -77,10 +77,6 @@ func GetStorageList(c *gin.Context) {
 						}
 					}
 				}
-
-				if foundSystem {
-					continue
-				}
 			}
 
 			stor := model1.Storage{
