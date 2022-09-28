@@ -65,31 +65,23 @@ func GetDiskList(c *gin.Context) {
 			disk.DiskType = "SSD"
 		}
 
-		if len(currentDisk.Children) > 0 && !foundSystem {
-			for _, blkChild := range currentDisk.Children {
-				if len(blkChild.Children) > 0 {
-					for _, blkGrandChild := range blkChild.Children {
-						if blkGrandChild.MountPoint != "/" {
-							continue
-						}
-
-						disk.Model = "System"
-						if strings.Contains(blkGrandChild.SubSystems, "mmc") {
-							disk.DiskType = "MMC"
-						} else if strings.Contains(blkGrandChild.SubSystems, "usb") {
-							disk.DiskType = "USB"
-						}
-						disk.Health = "true"
-
-						disks = append(disks, disk)
-						foundSystem = true
-						break
-					}
-
-					continue
+		if !foundSystem {
+			if currentDisk.MountPoint == "/" {
+				disk.Model = "System"
+				if strings.Contains(currentDisk.SubSystems, "mmc") {
+					disk.DiskType = "MMC"
+				} else if strings.Contains(currentDisk.SubSystems, "usb") {
+					disk.DiskType = "USB"
 				}
+				disk.Health = "true"
 
-				if blkChild.MountPoint == "/" {
+				disks = append(disks, disk)
+				foundSystem = true
+				continue
+			}
+
+			for _, blkChild := range currentDisk.Children {
+				if blkChild.MountPoint != "/" {
 					continue
 				}
 
