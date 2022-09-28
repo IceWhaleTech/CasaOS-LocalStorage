@@ -13,10 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+var MessageMergerFSNotEnabled = "mergerfs is not enabled - either it is not enabled in configuration file; merge point is not empty before mounting; or mergerfs is not installed"
+
 func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParams) error {
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		message := "mergerfs is not enabled"
-		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &message})
+		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
 	}
 
 	merges, err := service.MyService.LocalStorage().GetMergeAll(params.MountPoint)
@@ -35,8 +36,7 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		message := "mergerfs is not enabled"
-		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &message})
+		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
 	}
 
 	var m codegen.Merge
