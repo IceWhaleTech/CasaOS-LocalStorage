@@ -32,36 +32,21 @@ func InitV1Router() *gin.Engine {
 		v1DisksGroup := v1Group.Group("/disks")
 		v1DisksGroup.Use()
 		{
-			// v1DiskGroup.GET("/check", v1.GetDiskCheck) //delete
-			// v1DisksGroup.GET("", v1.GetDiskInfo)
 
-			// v1DisksGroup.POST("", v1.PostMountDisk)
 			v1DisksGroup.GET("", v1.GetDiskList)
 			v1DisksGroup.GET("/usb", v1.GetDisksUSBList)
 			v1DisksGroup.DELETE("/usb", v1.DeleteDiskUSB)
 			v1DisksGroup.DELETE("", v1.DeleteDisksUmount)
-			// //format storage
-			// v1DiskGroup.POST("/format", v1.PostDiskFormat)
-
-			// //mount SATA disk
-			// v1DiskGroup.POST("/mount", v1.PostMountDisk)
-
-			// //umount sata disk
-			// v1DiskGroup.POST("/umount", v1.PostDiskUmount)
-
-			// v1DiskGroup.GET("/type", v1.FormatDiskType)//delete
-
-			v1DisksGroup.DELETE("/part", v1.RemovePartition) // disk/delpart
 		}
 
 		v1StorageGroup := v1Group.Group("/storage")
 		v1StorageGroup.Use()
 		{
-			v1StorageGroup.POST("", v1.PostDiskAddPartition)
+			v1StorageGroup.POST("", v1.PostAddStorage)
 
-			v1StorageGroup.PUT("", v1.PostDiskFormat)
+			v1StorageGroup.PUT("", v1.PutFormatStorage)
 
-			v1StorageGroup.DELETE("", v1.PostDiskUmount)
+			v1StorageGroup.DELETE("", v1.DeleteStorage)
 			v1StorageGroup.GET("", v1.GetStorageList)
 		}
 

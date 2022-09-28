@@ -1,11 +1,16 @@
 package v1
 
 import (
+	"net/http"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/gin-gonic/gin"
@@ -79,4 +84,55 @@ func GetSystemUSBAutoMount(c *gin.Context) {
 			Message: common_err.GetMsg(common_err.SUCCESS),
 			Data:    state,
 		})
+}
+
+func GetDisksUSBList(c *gin.Context) {
+	list := service.MyService.Disk().LSBLK(false)
+	data := []model1.USBDriveStatus{}
+	for _, v := range list {
+		if v.Tran == "usb" {
+			temp := model1.USBDriveStatus{}
+			temp.Model = v.Model
+			temp.Name = v.Label
+			if temp.Name == "" {
+				temp.Name = v.Name
+			}
+			temp.Size = v.Size
+			children := []model1.USBChildren{}
+			for _, child := range v.Children {
+				if len(child.MountPoint) > 0 {
+					tempChildren := model1.USBChildren{}
+					tempChildren.MountPoint = child.MountPoint
+					tempChildren.Size, _ = strconv.ParseUint(child.FSSize, 10, 64)
+					tempChildren.Avail, _ = strconv.ParseUint(child.FSAvail, 10, 64)
+					tempChildren.Name = child.Label
+					if len(tempChildren.Name) == 0 {
+						tempChildren.Name = filepath.Base(child.MountPoint)
+					}
+					avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
+					children = append(children, tempChildren)
+					temp.Avail += avail
+				}
+			}
+
+			temp.Children = children
+			data = append(data, temp)
+		}
+	}
+	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
+}
+
+func DeleteDiskUSB(c *gin.Context) {
+	js := make(map[string]string)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
+		return
+	}
+	mountPoint := js["mount_point"]
+	if file.CheckNotExist(mountPoint) {
+		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
+		return
+	}
+	service.MyService.Disk().UmountUSB(mountPoint)
+	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: mountPoint})
 }

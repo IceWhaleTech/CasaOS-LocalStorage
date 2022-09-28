@@ -17,7 +17,6 @@ import (
 	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -26,18 +25,14 @@ import (
 type DiskService interface {
 	AddPartition(path string) (string, error)
 	CheckSerialDiskMount()
-	DeleteMount(id string)
 	DeleteMountPoint(path, mountPoint string)
-	DelPartition(path, num string) ([]string, error)
 	FormatDisk(path, format string) ([]string, error)
 	GetDiskInfo(path string) model.LSBLKModel
-	GetDiskInfoByPath(path string) *disk.UsageStat
 	GetPersistentType(path string) string
-	GetPlugInDisk() ([]string, error)
 	GetSerialAll() []model2.Volume
 	GetUSBDriveStatusList() []model.USBDriveStatus
 	LSBLK(isUseCache bool) []model.LSBLKModel
-	MountDisk(path, volume string) error
+	MountDisk(path, volume string) (string, error)
 	RemoveLSBLKCache()
 	SaveMountPoint(m model2.Volume)
 	SmartCTL(path string) model.SmartctlA
@@ -97,11 +92,6 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	return m
 }
 
-// 通过脚本获取外挂磁盘
-func (d *diskService) GetPlugInDisk() ([]string, error) {
-	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetPlugInDisk")
-}
-
 // 格式化硬盘
 func (d *diskService) FormatDisk(path, format string) ([]string, error) {
 	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;FormatDisk " + path + " " + format)
@@ -112,28 +102,9 @@ func (d *diskService) UmountPointAndRemoveDir(path string) (string, error) {
 	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
 }
 
-// 删除分区
-func (d *diskService) DelPartition(path, num string) ([]string, error) {
-	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;DelPartition " + path + " " + num)
-}
-
 // part
 func (d *diskService) AddPartition(path string) (string, error) {
 	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
-}
-
-func (d *diskService) AddAllPartition(path string) {
-}
-
-// 获取硬盘详情
-func (d *diskService) GetDiskInfoByPath(path string) *disk.UsageStat {
-	diskInfo, err := disk.Usage(path + "1")
-	if err != nil {
-		fmt.Println(err)
-	}
-	diskInfo.UsedPercent, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", diskInfo.UsedPercent), 64)
-	diskInfo.InodesUsedPercent, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", diskInfo.InodesUsedPercent), 64)
-	return diskInfo
 }
 
 // get disk details
@@ -232,25 +203,30 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 	return m
 }
 
-func (d *diskService) MountDisk(path, mountPoint string) error {
+func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
+	// check if path is already mounted at mountPoint
 	if mountInfoList, err := mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
 		if i.Source == path && i.Mountpoint == mountPoint {
 			return false, true
 		}
 		return true, false
 	}); err != nil {
-		return err
+		return "", err
 	} else if len(mountInfoList) > 0 {
 		logger.Info("already mounted", zap.String("path", path), zap.String("mount point", mountPoint))
-		return nil
+		return "", nil
 	}
 
-	_, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
+	if err := file.IsNotExistMkDir(mountPoint); err != nil {
+		return "", err
+	}
+
+	output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
 	if err != nil {
-		return err
+		return output, err
 	}
 
-	return nil
+	return "", nil
 }
 
 func (d *diskService) SaveMountPoint(m model2.Volume) {
@@ -265,10 +241,6 @@ func (d *diskService) SaveMountPoint(m model2.Volume) {
 
 func (d *diskService) UpdateMountPoint(m model2.Volume) {
 	d.db.Model(&model2.Volume{}).Where("uuid = ?", m.UUID).Update("mount_point", m.MountPoint)
-}
-
-func (d *diskService) DeleteMount(id string) {
-	d.db.Delete(&model2.Volume{}).Where("id = ?", id)
 }
 
 func (d *diskService) DeleteMountPoint(path, mountPoint string) {
@@ -358,20 +330,20 @@ func (d *diskService) CheckSerialDiskMount() {
 				// if len(h.MountPoint) == 0 && len(v.Children) == 1 && h.FsType == "ext4" {
 				if m, ok := mountPoint[h.UUID]; ok {
 					// mount point check
-					volume := m
+					mountPoint := m
 					if !file.CheckNotExist(m) {
-						for i := 0; file.CheckNotExist(volume); i++ {
-							volume = m + strconv.Itoa(i+1)
+						for i := 0; file.CheckNotExist(mountPoint); i++ {
+							mountPoint = m + strconv.Itoa(i+1)
 						}
 					}
-					if err := d.MountDisk(h.Path, volume); err != nil {
-						logger.Error("Failed to mount disk", zap.Error(err), zap.String("path", h.Path), zap.String("volume", volume))
+					if output, err := d.MountDisk(h.Path, mountPoint); err != nil {
+						logger.Error(output, zap.Error(err), zap.String("path", h.Path), zap.String("volume", mountPoint))
 					}
 
-					if volume != m {
+					if mountPoint != m {
 						ms := model2.Volume{}
 						ms.UUID = v.UUID
-						ms.MountPoint = volume
+						ms.MountPoint = mountPoint
 						d.UpdateMountPoint(ms)
 					}
 				}
