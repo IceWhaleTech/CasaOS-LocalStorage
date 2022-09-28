@@ -73,6 +73,7 @@ func init() {
 	service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		checkMergerFSInstallation()
 		ensureDefaultMergePoint()
 		service.MyService.LocalStorage().CheckMergeMount()
 	}
@@ -102,7 +103,32 @@ func ensureDefaultDirectories() {
 	}
 }
 
+func checkMergerFSInstallation() {
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		return
+	}
+
+	paths := []string{"/sbin/mount.mergerfs", "/usr/sbin/mount.mergerfs", "/usr/local/sbin/mount.mergerfs"}
+	installed := false
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			logger.Info("mergerfs is installed", zap.String("path", path))
+			installed = true
+			break
+		}
+	}
+
+	if !installed {
+		logger.Error("mergerfs is not installed at any path", zap.String("paths", strings.Join(paths, ", ")))
+		config.ServerInfo.EnableMergerFS = "False"
+	}
+}
+
 func ensureDefaultMergePoint() {
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		return
+	}
+
 	mountPoint := "/DATA"
 	sourceBasePath := constants.DefaultFilePath
 
