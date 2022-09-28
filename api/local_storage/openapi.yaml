@@ -1,0 +1,457 @@
+openapi: 3.0.3
+
+info:
+  title: CasaOS Local Storage API
+  version: v2
+  description: |-
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_dark_night_800px.png">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_twilight_blue_800px.png">
+        <img alt="CasaOS" src="https://raw.githubusercontent.com/IceWhaleTech/logo/main/casaos/casaos_banner_twilight_blue_800px.png">
+    </picture>
+
+    CasaOS Local Storage service manages local storage including disks, partitions and mounting points.
+
+    This API allows interacting with the service to conduct such management.
+
+    For issues and discussions, please visit the [GitHub repository](https://github.com/IceWhaleTech/CasaOS) or join [our Discord](https://discord.gg/knqAbbBbeX).
+
+servers:
+  - url: /v2/local_storage
+
+tags:
+  - name: Mount methods
+    description: |-
+      Low-level API
+
+  - name: Merge methods
+    description: |-
+      High-level API
+
+  - name: Merge
+    description: |-
+      <SchemaDefinition schemaRef="#/components/schemas/Merge" />
+
+  - name: Mount
+    description: |-
+      <SchemaDefinition schemaRef="#/components/schemas/Mount" />
+
+x-tagGroups:
+  - name: Mount
+    tags:
+      - Merge methods
+      - Mount methods
+
+  - name: Schemas
+    tags:
+      - Merge
+      - Mount
+
+security:
+  - access_token: []
+
+paths:
+  /merge:
+    get:
+      summary: Get merges
+      description: |-
+        (TODO)
+      operationId: getMerges
+      tags:
+        - Merge methods
+      parameters:
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/DATA"
+      responses:
+        "200":
+          $ref: "#/components/responses/GetMergesResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
+
+    post:
+      summary: Set a merge
+      description: |-
+        (TODO)
+      operationId: setMerge
+      tags:
+        - Merge methods
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Merge"
+      responses:
+        "200":
+          $ref: "#/components/responses/SetMergeResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
+
+  /mount:
+    get:
+      summary: Get mounted volumes
+      description: |-
+        Get all volumes currently mounted on the system. Volumes can be filtered by corresponding query parameters.
+      operationId: getMounts
+      tags:
+        - Mount methods
+      parameters:
+        - name: id
+          in: query
+          description: |-
+            Filter the results by id
+          schema:
+            type: string
+            example: "0"
+        - name: mount_point
+          in: query
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/"
+        - name: type
+          in: query
+          description: |-
+            Filter the results by type
+          schema:
+            type: string
+            example: "ext4"
+        - name: source
+          in: query
+          description: |-
+            Filter the results by source
+          schema:
+            type: string
+            example: "/dev/sda1"
+      responses:
+        "200":
+          $ref: "#/components/responses/GetMountsResponseOK"
+
+    post:
+      summary: Mount a volume
+      description: |-
+        (TODO)
+      operationId: mount
+      tags:
+        - Mount methods
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Mount"
+      responses:
+        "200":
+          $ref: "#/components/responses/AddMountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
+
+    put:
+      summary: Update a mount volume
+      description: |-
+        Updating a mount volume is equivalent to unmounting the volume and mounting it again with the new parameters.
+      operationId: updateMount
+      tags:
+        - Mount methods
+      parameters:
+        - name: mount_point
+          in: query
+          required: true
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Mount"
+      responses:
+        "200":
+          $ref: "#/components/responses/UpdateMountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "404":
+          $ref: "#/components/responses/ResponseNotFound"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
+
+    delete:
+      summary: Umount volume
+      description: |-
+        (TODO)
+      operationId: Umount
+      tags:
+        - Mount methods
+      parameters:
+        - name: mount_point
+          in: query
+          required: true
+          description: |-
+            Filter the results by mount point
+          schema:
+            type: string
+            example: "/DATA"
+      responses:
+        "200":
+          $ref: "#/components/responses/UmountResponseOK"
+        "400":
+          $ref: "#/components/responses/ResponseBadRequest"
+        "403":
+          $ref: "#/components/responses/ResponseForbidden"
+        "404":
+          $ref: "#/components/responses/ResponseNotFound"
+        "409":
+          $ref: "#/components/responses/ResponseConflict"
+
+components:
+  securitySchemes:
+    access_token:
+      type: apiKey
+      in: header
+      name: Authorization
+
+  responses:
+    GetMergesResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Merge"
+
+    SetMergeResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Merge"
+
+    GetMountsResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Mount"
+
+    AddMountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Mount"
+
+    UpdateMountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Mount"
+
+    UmountResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+
+    ResponseBadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Bad Request"
+
+    ResponseNotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Not Found"
+
+    ResponseForbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Forbidden"
+
+    ResponseConflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Conflict"
+
+    ResponseServiceUnavailable:
+      description: Service Unavailable
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+          example:
+            message: "Service Unavailable"
+
+  schemas:
+    BaseResponse:
+      properties:
+        message:
+          readOnly: true
+          description: message returned by server side if there is any
+          type: string
+          example: ""
+
+    Merge:
+      type: object
+      required:
+        - mount_point
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        fstype:
+          type: string
+          default: "fuse.mergerfs"
+        mount_point:
+          type: string
+          example: "/DATA"
+        source_base_path:
+          type: string
+          example: "/var/lib/casaos/files"
+        source_volume_paths:
+          type: array
+          items:
+            type: string
+            example: /dev/sdb_1
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        updated_at:
+          type: string
+          readOnly: true
+          format: date-time
+
+    Mount:
+      type: object
+      required:
+        - mount_point
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mount_point:
+          type: string
+          example: "/DATA"
+        fstype:
+          type: string
+          example: "fuse.mergerfs"
+        source:
+          type: string
+          example: "/mnt/a:/mnt/b"
+        options:
+          type: string
+          example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
+        extended:
+          type: object
+          description: |-
+            Extended properties of the mount
+          additionalProperties:
+            type: string
+          example:
+            "mergerfs.srcmounts": "/mnt/a:/mnt/b"
+
+    Volume:
+      type: object
+      required:
+        - path
+        - mount_point
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        uuid:
+          type: string
+          description: (TODO)
+          readOnly: true
+          example: 5c682e86-cec3-4761-9350-8e1a0c2d1ae9
+        path:
+          type: string
+          example: /dev/sdb1
+        state:
+          type: integer
+          description: (TODO)
+        mount_point:
+          type: string
+          example: /mnt/sdb_1
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
