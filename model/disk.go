@@ -30,6 +30,8 @@ type LSBLKModel struct {
 	Health      string       `json:"health"`
 	HotPlug     bool         `json:"hotplug"`
 	UUID        string       `json:"uuid"`
+	PTUUID      string       `json:"ptuuid"`
+	PartUUID    string       `json:"partuuid"`
 	FSUsed      string       `json:"fsused"`
 	Temperature int          `json:"temperature"`
 	Tran        string       `json:"tran"`
