@@ -204,6 +204,8 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 }
 
 func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
+	logger.Info("trying to mount...", zap.String("path", path), zap.String("mountPoint", mountPoint))
+
 	// check if path is already mounted at mountPoint
 	if mountInfoList, err := mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
 		if i.Source == path && i.Mountpoint == mountPoint {
@@ -211,6 +213,7 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		}
 		return true, false
 	}); err != nil {
+		logger.Error("error when trying to get mount info", zap.Error(err))
 		return "", err
 	} else if len(mountInfoList) > 0 {
 		logger.Info("already mounted", zap.String("path", path), zap.String("mount point", mountPoint))
@@ -218,15 +221,11 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 	}
 
 	if err := file.IsNotExistMkDir(mountPoint); err != nil {
+		logger.Error("error when checking if mount point already exists, or when creating the mount point if it does not exists", zap.Error(err), zap.String("mount point", mountPoint))
 		return "", err
 	}
 
-	output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
-	if err != nil {
-		return output, err
-	}
-
-	return "", nil
+	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
 }
 
 func (d *diskService) SaveMountPoint(m model2.Volume) {
@@ -310,47 +309,56 @@ func (d *diskService) CheckSerialDiskMount() {
 	dbList := d.GetSerialAll()
 
 	list := d.LSBLK(true)
-	mountPoint := make(map[string]string, len(dbList))
+	mountPointMap := make(map[string]string, len(dbList))
+
+	defer d.RemoveLSBLKCache()
+
 	// remount
 	for _, v := range dbList {
-		mountPoint[v.UUID] = v.MountPoint
+		logger.Info("previously persisted mount point", zap.Any("volume", v))
+		mountPointMap[v.UUID] = v.MountPoint
 	}
-	for _, v := range list {
-		output, err := command.ExecEnabledSMART(v.Path)
+
+	for _, currentDisk := range list {
+		output, err := command.ExecEnabledSMART(currentDisk.Path)
 		if err != nil {
 			if output != nil {
-				logger.Error("failed to enable S.M.A.R.T: "+string(output), zap.Error(err), zap.String("path", v.Path))
+				logger.Error("failed to enable S.M.A.R.T: "+string(output), zap.Error(err), zap.String("path", currentDisk.Path))
 			} else {
-				logger.Error("failed to enable S.M.A.R.T", zap.Error(err), zap.String("path", v.Path))
+				logger.Error("failed to enable S.M.A.R.T", zap.Error(err), zap.String("path", currentDisk.Path))
 			}
 		}
 
-		if v.Children != nil {
-			for _, h := range v.Children {
-				// if len(h.MountPoint) == 0 && len(v.Children) == 1 && h.FsType == "ext4" {
-				if m, ok := mountPoint[h.UUID]; ok {
-					// mount point check
-					mountPoint := m
-					if !file.CheckNotExist(m) {
-						for i := 0; file.CheckNotExist(mountPoint); i++ {
-							mountPoint = m + strconv.Itoa(i+1)
-						}
-					}
-					if output, err := d.MountDisk(h.Path, mountPoint); err != nil {
-						logger.Error(output, zap.Error(err), zap.String("path", h.Path), zap.String("volume", mountPoint))
-					}
+		for _, blkChild := range currentDisk.Children {
+			m, ok := mountPointMap[blkChild.UUID]
+			if !ok {
+				continue
+			}
 
-					if mountPoint != m {
-						ms := model2.Volume{}
-						ms.UUID = v.UUID
-						ms.MountPoint = mountPoint
-						d.UpdateMountPoint(ms)
-					}
+			logger.Info("trying to re-mount...", zap.String("path", blkChild.Path), zap.String("mount point", m))
+
+			// mount point check
+			mountPoint := m
+			if !file.CheckNotExist(m) {
+				for i := 0; file.CheckNotExist(mountPoint); i++ {
+					mountPoint = m + strconv.Itoa(i+1)
 				}
+				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
+			}
+
+			if output, err := d.MountDisk(blkChild.Path, mountPoint); err != nil {
+				logger.Error(output, zap.Error(err), zap.String("path", blkChild.Path), zap.String("volume", mountPoint))
+			}
+
+			if mountPoint != m {
+				ms := model2.Volume{
+					UUID:       currentDisk.UUID,
+					MountPoint: mountPoint,
+				}
+				d.UpdateMountPoint(ms)
 			}
 		}
 	}
-	d.RemoveLSBLKCache()
 }
 
 func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
