@@ -2,12 +2,12 @@ package v2
 
 import (
 	"errors"
-	"os/exec"
 	"strconv"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
@@ -85,10 +85,8 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 		return nil, ErrMountPointIsNotEmpty
 	}
 
-	cmd := exec.Command("mount", "-t", *m.Fstype, *m.Source, m.MountPoint, "-o", *m.Options) // #nosec
-	logger.Info("executing command", zap.Any("command", cmd.String()))
-	if buf, err := cmd.CombinedOutput(); err != nil {
-		logger.Error(string(buf), zap.Error(err), zap.Any("mount", m))
+	if err := mount.Mount(*m.Source, m.MountPoint, m.Fstype, m.Options); err != nil {
+		logger.Error("error when trying to mount", zap.Error(err), zap.Any("mount", m))
 		return nil, err
 	}
 
@@ -128,12 +126,11 @@ func (s *LocalStorageService) Umount(mountpoint string) error {
 		return ErrNotMounted
 	}
 
-	cmd := exec.Command("umount", mountpoint) // #nosec
-	logger.Info("executing command", zap.Any("command", cmd.String()))
-	if buf, err := cmd.CombinedOutput(); err != nil {
-		logger.Error(string(buf), zap.Error(err), zap.String("mount point", mountpoint))
+	if err := mount.UmountByMountPoint(mountpoint); err != nil {
+		logger.Error("error when trying to umount by mount point", zap.Error(err), zap.String("mount point", mountpoint))
 		return err
 	}
+
 	return nil
 }
 

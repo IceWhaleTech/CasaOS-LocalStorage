@@ -54,7 +54,7 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	// expand source volume paths to source volumes
 	var sourceVolumes []*model2.Volume
 	if m.SourceVolumePaths != nil {
-		allVolumes := service.MyService.Disk().GetSerialAll()
+		allVolumes := service.MyService.Disk().GetSerialAllFromDB()
 		sourceVolumes = make([]*model2.Volume, 0, len(*m.SourceVolumePaths))
 		for _, volumePath := range *m.SourceVolumePaths {
 			volumeFound := false

@@ -152,10 +152,23 @@ func PostAddStorage(c *gin.Context) {
 
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
+		logger.Info("umounting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+			logger.Error("error when trying to umount storage", zap.Error(err), zap.String("path", path))
+			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
+			return
+		}
 
-		output, err := service.MyService.Disk().AddPartition(path)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
+		logger.Info("deleting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().DeletePartition(path); err != nil {
+			logger.Error("error when trying to delete partition", zap.Error(err), zap.String("path", path))
+			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			return
+		}
+
+		logger.Info("formatting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().AddPartition(path); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 			return
 		}
 	}
@@ -178,7 +191,7 @@ func PostAddStorage(c *gin.Context) {
 			CreatedAt:  time.Now().Unix(),
 		}
 
-		service.MyService.Disk().SaveMountPoint(m)
+		service.MyService.Disk().SaveMountPointToDB(m)
 
 		// send notify to client
 		go func(blkChild model1.LSBLKModel) {
@@ -237,8 +250,8 @@ func PutFormatStorage(c *gin.Context) {
 	defer service.MyService.Disk().RemoveLSBLKCache()
 	defer delete(diskMap, path)
 
-	if output, err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		return
 	}
 
@@ -267,7 +280,7 @@ func PutFormatStorage(c *gin.Context) {
 		CreatedAt:  time.Now().Unix(),
 	}
 
-	service.MyService.Disk().SaveMountPoint(m)
+	service.MyService.Disk().SaveMountPointToDB(m)
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
@@ -298,13 +311,13 @@ func DeleteStorage(c *gin.Context) {
 		return
 	}
 
-	if output, err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		return
 	}
 
 	// delete data
-	defer service.MyService.Disk().DeleteMountPoint(path, mountPoint)
+	defer service.MyService.Disk().DeleteMountPointFromDB(path, mountPoint)
 	defer service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client

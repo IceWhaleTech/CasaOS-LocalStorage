@@ -2,6 +2,7 @@ package service
 
 import (
 	json2 "encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/moby/sys/mountinfo"
 
@@ -23,22 +26,24 @@ import (
 )
 
 type DiskService interface {
-	AddPartition(path string) (string, error)
+	AddPartition(path string) error
+	DeletePartition(path string) error
 	CheckSerialDiskMount()
-	DeleteMountPoint(path, mountPoint string)
 	FormatDisk(path, format string) ([]string, error)
 	GetDiskInfo(path string) model.LSBLKModel
 	GetPersistentType(path string) string
-	GetSerialAll() []model2.Volume
 	GetUSBDriveStatusList() []model.USBDriveStatus
 	LSBLK(isUseCache bool) []model.LSBLKModel
 	MountDisk(path, volume string) (string, error)
 	RemoveLSBLKCache()
-	SaveMountPoint(m model2.Volume)
 	SmartCTL(path string) model.SmartctlA
-	UmountPointAndRemoveDir(path string) (string, error)
+	UmountPointAndRemoveDir(path string) error
 	UmountUSB(path string) error
-	UpdateMountPoint(m model2.Volume)
+
+	UpdateMountPointInDB(m model2.Volume)
+	DeleteMountPointFromDB(path, mountPoint string)
+	GetSerialAllFromDB() []model2.Volume
+	SaveMountPointToDB(m model2.Volume)
 }
 
 type diskService struct {
@@ -98,13 +103,94 @@ func (d *diskService) FormatDisk(path, format string) ([]string, error) {
 }
 
 // 移除挂载点,删除目录
-func (d *diskService) UmountPointAndRemoveDir(path string) (string, error) {
-	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UMountPointAndRemoveDir " + path)
+func (d *diskService) UmountPointAndRemoveDir(path string) error {
+	logger.Info("trying to get all partitions of device...", zap.String("path", path))
+	partitions, err := partition.GetPartitions(path)
+	if err != nil {
+		logger.Error("error when getting all partitions of device", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	for _, p := range partitions {
+		if p.LSBLKProperties["MOUNTPOINT"] != "" {
+			logger.Info("trying to umount partition...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := mount.UmountByMountPoint(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
+				logger.Error("error when umounting partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+				return err
+			}
+
+			logger.Info("trying to remove mount point directory...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := file.RMDir(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
+				logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // part
-func (d *diskService) AddPartition(path string) (string, error) {
-	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;AddPartition " + path)
+func (d *diskService) AddPartition(path string) error {
+	logger.Info("creating partition table...", zap.String("path", path))
+	if err := partition.CreatePartitionTable(path); err != nil {
+		logger.Error("failed to create partition table", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	logger.Info("creating partition...", zap.String("path", path))
+	if err := partition.AddPartition(path); err != nil {
+		logger.Error("failed to create partition", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	logger.Info("getting created partition...", zap.String("path", path))
+	partitions, err := partition.GetPartitions(path)
+	if err != nil {
+		logger.Error("failed to get created partition", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	for _, p := range partitions {
+		logger.Info("formatting partition...", zap.String("path", p.LSBLKProperties["PATH"]))
+		if err := partition.FormatPartition(p.LSBLKProperties["PATH"]); err != nil {
+			logger.Error("failed to format partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]))
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *diskService) DeletePartition(path string) error {
+	// check if path exists
+	if !file.Exists(path) {
+		return errors.New("device " + path + " does not exists")
+	}
+
+	logger.Info("trying to get all partitions of device...", zap.String("path", path))
+	partitions, err := partition.GetPartitions(path)
+	if err != nil {
+		logger.Error("error when getting all partitions of device", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	for _, p := range partitions {
+
+		n, err := strconv.Atoi(p.PARTXProperties["NR"])
+		if err != nil {
+			logger.Error("error when converting partition number to int", zap.Error(err), zap.String("path", path), zap.String("partition number", p.PARTXProperties["NR"]))
+			return err
+		}
+
+		logger.Info("trying to delete partition...", zap.String("path", p.LSBLKProperties["PATH"]))
+		if err := partition.DeletePartition(path, n); err != nil {
+			logger.Error("error when deleting partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]))
+			return err
+		}
+	}
+
+	return nil
 }
 
 // get disk details
@@ -228,7 +314,7 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
 }
 
-func (d *diskService) SaveMountPoint(m model2.Volume) {
+func (d *diskService) SaveMountPointToDB(m model2.Volume) {
 	var existing model2.Volume
 
 	d.db.Where(&model2.Volume{UUID: m.UUID}).First(&existing)
@@ -238,31 +324,11 @@ func (d *diskService) SaveMountPoint(m model2.Volume) {
 	d.db.Save(&m)
 }
 
-func (d *diskService) UpdateMountPoint(m model2.Volume) {
+func (d *diskService) UpdateMountPointInDB(m model2.Volume) {
 	d.db.Model(&model2.Volume{}).Where("uuid = ?", m.UUID).Update("mount_point", m.MountPoint)
 }
 
-func (d *diskService) DeleteMountPoint(path, mountPoint string) {
-	if mountInfoList, err := mountinfo.GetMounts(func(i *mountinfo.Info) (skip bool, stop bool) {
-		if i.Source == path && i.Mountpoint == mountPoint {
-			return false, true
-		}
-		return true, false
-	}); err != nil {
-		logger.Error("failed to checking for existing mount", zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint))
-		return
-	} else if len(mountInfoList) == 0 {
-		logger.Info("already umounted", zap.String("path", path), zap.String("mount point", mountPoint))
-	} else {
-		output, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_umount " + path)
-		if err != nil {
-			logger.Error(output, zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint))
-			return
-		}
-
-		logger.Info(output, zap.String("path", path), zap.String("mount point", mountPoint))
-	}
-
+func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) {
 	var existingVolumes []model2.Volume
 
 	if result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Find(&existingVolumes); result.Error != nil {
@@ -275,7 +341,7 @@ func (d *diskService) DeleteMountPoint(path, mountPoint string) {
 	}
 }
 
-func (d *diskService) GetSerialAll() []model2.Volume {
+func (d *diskService) GetSerialAllFromDB() []model2.Volume {
 	var m []model2.Volume
 	d.db.Find(&m)
 	return m
@@ -306,7 +372,7 @@ func (d *diskService) CheckSerialDiskMount() {
 	logger.Info("Checking serial disk mount...")
 
 	// check mount point
-	dbList := d.GetSerialAll()
+	dbList := d.GetSerialAllFromDB()
 
 	list := d.LSBLK(true)
 	mountPointMap := make(map[string]string, len(dbList))
@@ -355,7 +421,7 @@ func (d *diskService) CheckSerialDiskMount() {
 					UUID:       currentDisk.UUID,
 					MountPoint: mountPoint,
 				}
-				d.UpdateMountPoint(ms)
+				d.UpdateMountPointInDB(ms)
 			}
 		}
 	}

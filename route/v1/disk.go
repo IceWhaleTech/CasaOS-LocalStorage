@@ -40,7 +40,7 @@ func GetDiskList(c *gin.Context) {
 	blkList := service.MyService.Disk().LSBLK(false)
 	foundSystem := false
 
-	dbList := service.MyService.Disk().GetSerialAll()
+	dbList := service.MyService.Disk().GetSerialAllFromDB()
 	part := make(map[string]int64, len(dbList))
 	for _, v := range dbList {
 		part[v.MountPoint] = v.CreatedAt
@@ -174,13 +174,13 @@ func DeleteDisksUmount(c *gin.Context) {
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	for _, v := range diskInfo.Children {
-		if output, err := service.MyService.Disk().UmountPointAndRemoveDir(v.Path); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+		if err := service.MyService.Disk().UmountPointAndRemoveDir(v.Path); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 			return
 		}
 
 		// delete data
-		service.MyService.Disk().DeleteMountPoint(v.Path, v.MountPoint)
+		service.MyService.Disk().DeleteMountPointFromDB(v.Path, v.MountPoint)
 
 		if err := service.MyService.Shares().DeleteShare(v.MountPoint); err != nil {
 			logger.Error("error when deleting share by mount point", zap.Error(err), zap.String("mount point", v.MountPoint))
