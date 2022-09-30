@@ -40,10 +40,10 @@ type DiskService interface {
 	UmountPointAndRemoveDir(path string) error
 	UmountUSB(path string) error
 
-	UpdateMountPointInDB(m model2.Volume)
-	DeleteMountPointFromDB(path, mountPoint string)
-	GetSerialAllFromDB() []model2.Volume
-	SaveMountPointToDB(m model2.Volume)
+	UpdateMountPointInDB(m model2.Volume) error
+	DeleteMountPointFromDB(path, mountPoint string) error
+	GetSerialAllFromDB() ([]model2.Volume, error)
+	SaveMountPointToDB(m model2.Volume) error
 }
 
 type diskService struct {
@@ -55,6 +55,8 @@ const (
 	PersistentTypeFStab  = "fstab"
 	PersistentTypeCasaOS = "casaos"
 )
+
+var ErrVolumeWithEmptyUUID = errors.New("volume with empty uuid")
 
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
@@ -314,37 +316,76 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
 }
 
-func (d *diskService) SaveMountPointToDB(m model2.Volume) {
+func (d *diskService) SaveMountPointToDB(m model2.Volume) error {
+	if m.UUID == "" {
+		return ErrVolumeWithEmptyUUID
+	}
+
 	var existing model2.Volume
 
-	d.db.Where(&model2.Volume{UUID: m.UUID}).First(&existing)
+	result := d.db.Where(&model2.Volume{UUID: m.UUID}).Limit(1).Find(&existing)
 
-	m.ID = existing.ID
+	if result.Error != nil {
+		logger.Error("error when querying volume by UUID", zap.Error(result.Error), zap.Any("uuid", m.UUID))
+		return result.Error
+	}
 
-	d.db.Save(&m)
+	if result.RowsAffected > 0 {
+		m.ID = existing.ID
+	}
+
+	if result := d.db.Save(&m); result.Error != nil {
+		logger.Error("error when saving volume to db", zap.Error(result.Error), zap.Any("volume", m))
+		return result.Error
+	}
+
+	return nil
 }
 
-func (d *diskService) UpdateMountPointInDB(m model2.Volume) {
-	d.db.Model(&model2.Volume{}).Where("uuid = ?", m.UUID).Update("mount_point", m.MountPoint)
+func (d *diskService) UpdateMountPointInDB(m model2.Volume) error {
+	result := d.db.Model(&model2.Volume{}).Where(&model2.Volume{UUID: m.UUID}).Update("mount_point", m.MountPoint)
+	if result.Error != nil {
+		logger.Error("error when updating mount point in db by UUID", zap.Error(result.Error), zap.String("uuid", m.UUID), zap.String("mount point", m.MountPoint))
+		return result.Error
+	}
+
+	logger.Info(strconv.Itoa(int(result.RowsAffected))+" volume(s) with mount point updated in db by UUID", zap.String("uuid", m.UUID), zap.String("mount point", m.MountPoint))
+
+	return nil
 }
 
-func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) {
+func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
 	var existingVolumes []model2.Volume
 
-	if result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Find(&existingVolumes); result.Error != nil {
-		logger.Error("error when finding the volume", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
-	} else if result.RowsAffected <= 0 {
-		logger.Info("no volume found", zap.String("path", path), zap.String("mount point", mountPoint))
-	} else {
-		logger.Info("deleting volume from database", zap.String("path", path), zap.String("mount point", mountPoint))
-		d.db.Delete(&existingVolumes)
+	result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+
+	if result.Error != nil {
+		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
 	}
+
+	if result.RowsAffected == 0 {
+		logger.Info("no volume found by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint))
+		return nil
+	}
+
+	if result := d.db.Delete(&existingVolumes); result.Error != nil {
+		logger.Error("error when deleting volume", zap.Error(result.Error), zap.Any("volume", existingVolumes))
+		return result.Error
+	}
+
+	return nil
 }
 
-func (d *diskService) GetSerialAllFromDB() []model2.Volume {
-	var m []model2.Volume
-	d.db.Find(&m)
-	return m
+func (d *diskService) GetSerialAllFromDB() ([]model2.Volume, error) {
+	var volumes []model2.Volume
+
+	result := d.db.Find(&volumes)
+	if result.Error != nil {
+		logger.Error("error when querying all volumes from db", zap.Error(result.Error))
+		return nil, result.Error
+	}
+
+	return volumes, nil
 }
 
 func (d *diskService) GetPersistentType(path string) string {
@@ -372,7 +413,11 @@ func (d *diskService) CheckSerialDiskMount() {
 	logger.Info("Checking serial disk mount...")
 
 	// check mount point
-	dbList := d.GetSerialAllFromDB()
+	dbList, err := d.GetSerialAllFromDB()
+	if err != nil {
+		logger.Error("error when getting all volumes from db", zap.Error(err))
+		return
+	}
 
 	list := d.LSBLK(true)
 	mountPointMap := make(map[string]string, len(dbList))
