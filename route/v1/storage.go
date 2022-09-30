@@ -177,12 +177,20 @@ func PostAddStorage(c *gin.Context) {
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
+
+		// mount disk
 		if output, err := service.MyService.Disk().MountDisk(blkChild.Path, mountPoint); err != nil {
 			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
 			return
 		}
 
-		b := service.MyService.Disk().GetDiskInfo(blkChild.Path)
+		var b model1.LSBLKModel
+		retry := 3 // ugly workaround for lsblk not returning UUID after creating partition on time - need a better solution
+		for b.UUID == "" && retry > 0 {
+			b = service.MyService.Disk().GetDiskInfo(blkChild.Path)
+			retry--
+			time.Sleep(1 * time.Second)
+		}
 
 		m := model2.Volume{
 			MountPoint: b.MountPoint,
@@ -192,7 +200,10 @@ func PostAddStorage(c *gin.Context) {
 			CreatedAt:  time.Now().Unix(),
 		}
 
-		service.MyService.Disk().SaveMountPointToDB(m)
+		if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			return
+		}
 
 		// send notify to client
 		go func(blkChild model1.LSBLKModel) {

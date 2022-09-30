@@ -56,7 +56,7 @@ const (
 	PersistentTypeCasaOS = "casaos"
 )
 
-var ErrVolumeWithEmptyUUID = errors.New("volume with empty uuid")
+var ErrVolumeWithEmptyUUID = errors.New("cannot save volume with empty uuid")
 
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
