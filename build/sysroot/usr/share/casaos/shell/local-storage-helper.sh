@@ -40,24 +40,12 @@ UMountPointAndRemoveDir() {
   fi
 }
 
-#删除分区
-#param 路径   /dev/sdb
-#param 删除分区的区号
-DelPartition() {
-  fdisk $1 <<EOF
-  d
-  $2
-  wq
-EOF
-}
-
 #添加分区只有一个分区
 #param 路径   /dev/sdb
 #param 要挂载的目录
 AddPartition() {
   set -e
 
-  DelPartition $1
   parted -s $1 mklabel gpt
 
   parted -s $1 mkpart primary ext4 0 100%
