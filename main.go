@@ -73,8 +73,20 @@ func init() {
 	service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		checkMergerFSInstallation()
-		ensureDefaultMergePoint()
+		if !isMergerFSInstalled() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+	}
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		if !ensureDefaultMergePoint() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+	}
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
 		service.MyService.LocalStorage().CheckMergeMount()
 	}
 
@@ -103,32 +115,23 @@ func ensureDefaultDirectories() {
 	}
 }
 
-func checkMergerFSInstallation() {
-	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		return
+func isMergerFSInstalled() bool {
+	paths := []string{
+		"/sbin/mount.mergerfs", "/usr/sbin/mount.mergerfs", "/usr/local/sbin/mount.mergerfs",
+		"/bin/mount.mergerfs", "/usr/bin/mount.mergerfs", "/usr/local/bin/mount.mergerfs",
 	}
-
-	paths := []string{"/sbin/mount.mergerfs", "/usr/sbin/mount.mergerfs", "/usr/local/sbin/mount.mergerfs"}
-	installed := false
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
 			logger.Info("mergerfs is installed", zap.String("path", path))
-			installed = true
-			break
+			return true
 		}
 	}
 
-	if !installed {
-		logger.Error("mergerfs is not installed at any path", zap.String("paths", strings.Join(paths, ", ")))
-		config.ServerInfo.EnableMergerFS = "False"
-	}
+	logger.Error("mergerfs is not installed at any path", zap.String("paths", strings.Join(paths, ", ")))
+	return false
 }
 
-func ensureDefaultMergePoint() {
-	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		return
-	}
-
+func ensureDefaultMergePoint() bool {
 	mountPoint := "/DATA"
 	sourceBasePath := constants.DefaultFilePath
 
@@ -144,7 +147,7 @@ func ensureDefaultMergePoint() {
 		if len(existingMerges) > 1 {
 			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
 		}
-		return
+		return true
 	}
 
 	if _, err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
@@ -155,12 +158,14 @@ func ensureDefaultMergePoint() {
 		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
 			logger.Info(err.Error(), zap.String("mount point", mountPoint))
 		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			logger.Error("Mount point "+mountPoint+" is not empty - disabling MergerFS", zap.String("mount point", mountPoint))
-			config.ServerInfo.EnableMergerFS = "False"
+			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+			return false
 		} else {
 			panic(err)
 		}
 	}
+
+	return true
 }
 
 func main() {
