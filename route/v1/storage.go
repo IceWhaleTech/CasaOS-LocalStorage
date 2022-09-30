@@ -150,7 +150,6 @@ func PostAddStorage(c *gin.Context) {
 	defer service.MyService.Disk().RemoveLSBLKCache()
 	defer delete(diskMap, path)
 
-	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
 		logger.Info("umounting storage...", zap.String("path", path))
 		if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
@@ -174,8 +173,7 @@ func PostAddStorage(c *gin.Context) {
 	}
 
 	// TODO - unable to get UUID if calling lsblk shortly after creating partition
-	currentDisk = service.MyService.Disk().GetDiskInfo(path)
-
+	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
@@ -184,10 +182,12 @@ func PostAddStorage(c *gin.Context) {
 			return
 		}
 
+		b := service.MyService.Disk().GetDiskInfo(blkChild.Path)
+
 		m := model2.Volume{
-			MountPoint: mountPoint,
-			Path:       blkChild.Path,
-			UUID:       blkChild.UUID,
+			MountPoint: b.MountPoint,
+			Path:       b.Path,
+			UUID:       b.UUID,
 			State:      0,
 			CreatedAt:  time.Now().Unix(),
 		}

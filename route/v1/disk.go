@@ -40,7 +40,13 @@ func GetDiskList(c *gin.Context) {
 	blkList := service.MyService.Disk().LSBLK(false)
 	foundSystem := false
 
-	dbList := service.MyService.Disk().GetSerialAllFromDB()
+	dbList, err := service.MyService.Disk().GetSerialAllFromDB()
+	if err != nil {
+		logger.Error("error when getting all volumes from database", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
+
 	part := make(map[string]int64, len(dbList))
 	for _, v := range dbList {
 		part[v.MountPoint] = v.CreatedAt
