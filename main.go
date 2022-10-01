@@ -137,7 +137,7 @@ func ensureDefaultMergePoint() bool {
 
 	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
 
-	existingMerges, err := service.MyService.LocalStorage().GetMergeAll(&mountPoint)
+	existingMerges, err := service.MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
 	if err != nil {
 		panic(err)
 	}

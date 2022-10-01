@@ -75,7 +75,7 @@ func hookAfterDeleteVolume(db *gorm.DB, model interface{}) {
 	}
 }
 
-func (s *LocalStorageService) GetMergeAll(mountPoint *string) ([]model2.Merge, error) {
+func (s *LocalStorageService) GetMergeAllFromDB(mountPoint *string) ([]model2.Merge, error) {
 	var merges []model2.Merge
 
 	if mountPoint == nil {
@@ -91,6 +91,7 @@ func (s *LocalStorageService) GetMergeAll(mountPoint *string) ([]model2.Merge, e
 	return merges, nil
 }
 
+// TODO - refactor SaveMergeToDB from SetMerge - let external logic to decide whether to call SaveMergeToDB or not
 func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, error) {
 	// check if the mount point exists
 	if _, err := os.Stat(merge.MountPoint); err != nil {
@@ -98,13 +99,13 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	}
 
 	// check if a merge already exists in database by mount point
-	var existingMerge model2.Merge
+	var existingMergeInDB model2.Merge
 
-	mergeAlreadyExists := false
-	if result := s._db.Where(&model2.Merge{MountPoint: merge.MountPoint}).Limit(1).Find(&existingMerge); result.Error != nil {
+	isExistingMergeInDB := false
+	if result := s._db.Where(&model2.Merge{MountPoint: merge.MountPoint}).Limit(1).Find(&existingMergeInDB); result.Error != nil {
 		return nil, result.Error
 	} else if result.RowsAffected > 0 {
-		mergeAlreadyExists = true
+		isExistingMergeInDB = true
 	}
 
 	// build sources
@@ -113,9 +114,9 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	// source base path
 	var sourceBasePath string
 
-	if mergeAlreadyExists && existingMerge.SourceBasePath != nil {
+	if isExistingMergeInDB && existingMergeInDB.SourceBasePath != nil {
 		// default to the existing source base path if not specified in the request
-		sourceBasePath = *existingMerge.SourceBasePath
+		sourceBasePath = *existingMergeInDB.SourceBasePath
 	}
 
 	if merge.SourceBasePath != nil {
@@ -145,9 +146,9 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	// source volumes
 	var sourceVolumes []*model2.Volume
 
-	if mergeAlreadyExists && existingMerge.SourceVolumes != nil {
+	if isExistingMergeInDB && existingMergeInDB.SourceVolumes != nil {
 		// default to the original source volumes if not specified in the request
-		sourceVolumes = existingMerge.SourceVolumes
+		sourceVolumes = existingMergeInDB.SourceVolumes
 	}
 
 	if merge.SourceVolumes != nil {
@@ -166,11 +167,14 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 			return nil, ErrMergeMountPointSourceConflict
 		}
 
+		// TODO - append only when the volume with the same UUID is already attached, so we don't incorrectly merge the wrong volume (log this)
+
 		sources = append(sources, sourceVolume.MountPoint)
 	}
 
-	// check if the mount point is NOT a mergerfs mount
 	if _, err := mergerfs.ListValues(merge.MountPoint); err != nil {
+		// looks like merge.MountPoint is not a valid mergerfs mount point yet
+
 		// check if the mount point is empty before creating a new mergerfs mount
 		if bool, err := file.IsDirEmpty(merge.MountPoint); err != nil {
 			return nil, err
@@ -178,6 +182,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 			return nil, ErrMountPointIsNotEmpty
 		}
 
+		// create a new merge by mounting mergerfs
 		source := strings.Join(sources, ":")
 		if _, err := s.Mount(codegen.Mount{
 			MountPoint: merge.MountPoint,
@@ -201,28 +206,28 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 		}
 	}
 
-	if mergeAlreadyExists {
+	if isExistingMergeInDB {
 		// start association mode
-		if err := s._db.Model(&existingMerge).Association(model2.MergeSourceVolumes).Error; err != nil {
+		if err := s._db.Model(&existingMergeInDB).Association(model2.MergeSourceVolumes).Error; err != nil {
 			return nil, err
 		}
 
-		if merge.SourceBasePath != nil && *merge.SourceBasePath != *existingMerge.SourceBasePath {
-			existingMerge.SourceBasePath = merge.SourceBasePath
-			if err := s._db.Model(&existingMerge).Update(model.MergeSourceBasePath, merge.SourceBasePath).Error; err != nil {
+		if merge.SourceBasePath != nil && *merge.SourceBasePath != *existingMergeInDB.SourceBasePath {
+			existingMergeInDB.SourceBasePath = merge.SourceBasePath
+			if err := s._db.Model(&existingMergeInDB).Update(model.MergeSourceBasePath, merge.SourceBasePath).Error; err != nil {
 				return nil, err
 			}
 		}
 
 		if merge.SourceVolumes != nil {
-			if err := s._db.Model(&existingMerge).Association(model2.MergeSourceVolumes).Replace(merge.SourceVolumes); err != nil {
+			if err := s._db.Model(&existingMergeInDB).Association(model2.MergeSourceVolumes).Replace(merge.SourceVolumes); err != nil {
 				return nil, err
 			}
 		}
 
-		return &existingMerge, nil
+		return &existingMergeInDB, nil
 	}
-
+	// else (merge does not already exist in database), create a new one
 	if err := s._db.Create(merge).Error; err != nil {
 		return nil, err
 	}
@@ -233,7 +238,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 func (s *LocalStorageService) CheckMergeMount() {
 	logger.Info("checking merge mount...")
 
-	mergeList, err := s.GetMergeAll(nil)
+	mergesFromDB, err := s.GetMergeAllFromDB(nil)
 	if err != nil {
 		logger.Error("failed to get merge list from database", zap.Error(err))
 		return
@@ -245,48 +250,60 @@ func (s *LocalStorageService) CheckMergeMount() {
 		return
 	}
 
-	for i := range mergeList {
-		mountNeeded := true
+	for i := range mergesFromDB {
+
+		isMergeExist := false
+
+		// for each merge from database by mount point, check if it already mounted, i.e. a mergerfs mount
 		for _, mount := range mounts {
-			if mount.MountPoint == mergeList[i].MountPoint {
-				if *mount.Fstype == mergeList[i].FSType {
-					logger.Info("merge already exists - mount not needed", zap.Any("merge", mergeList[i]))
-					mountNeeded = false
+			if mount.MountPoint == mergesFromDB[i].MountPoint {
+				if *mount.Fstype == mergesFromDB[i].FSType {
+					logger.Info("merge already exists", zap.Any("merge", mergesFromDB[i]))
+					isMergeExist = true
 					break
 				}
 				logger.Error("not a mergerfs mount point", zap.Any("mount", mount))
 			}
 		}
 
-		// mount if not mounted yet
-		if mountNeeded {
-			logger.Info("merge not found - mount needed", zap.Any("merge", mergeList[i]))
-			if _, err := s.SetMerge(&mergeList[i]); err != nil {
-				logger.Error("failed to create merge", zap.Error(err))
+		if isMergeExist {
+			// check if merge needs to be updated by comparing the sources of current merge in the system and the merge from database
+			currentSourceList, err := mergerfs.GetSource(mergesFromDB[i].MountPoint)
+			if err != nil {
+				logger.Error("failed to get current source list", zap.Error(err), zap.Any("merge", mergesFromDB[i]))
+				continue
 			}
+
+			// TODO - check mergesFromDB[i].SourceBasePath in the current source list - if not, should set merge
+
+			// TODO - get corresponding volumes by mount point in current source list, then remove any dettached volume from mergesFromDB[i].SourceVolumes by UUID
+
+			// TODO - if any change to mergesFromDB[i].SourceVolumes, and source base path - set the merge (but do not save to database)
+
+			expectSourceList := []string{*mergesFromDB[i].SourceBasePath}
+			for _, volume := range mergesFromDB[i].SourceVolumes {
+				// TODO - append only when the volume with the same UUID is already attached, so we don't incorrectly merge the wrong volume (log this)
+				expectSourceList = append(expectSourceList, volume.MountPoint)
+			}
+
+			if !utils.CompareStringSlices(currentSourceList, expectSourceList) {
+
+				logger.Info("merge source list not match - update needed",
+					zap.String("currentSourceList", strings.Join(currentSourceList, ",")),
+					zap.String("expectSourceList", strings.Join(expectSourceList, ",")))
+
+				if _, err := s.SetMerge(&mergesFromDB[i]); err != nil {
+					logger.Error("failed to set merge sources", zap.Any("merge", mergesFromDB[i]), zap.Error(err))
+				}
+			}
+
 			continue
 		}
-
-		currentSourceList, err := mergerfs.GetSource(mergeList[i].MountPoint)
-		if err != nil {
-			logger.Error("failed to get current source list", zap.Error(err), zap.Any("merge", mergeList[i]))
-			continue
+		// else (merge does not exist), create a new one
+		logger.Info("merge does not already exist", zap.Any("merge", mergesFromDB[i]))
+		if _, err := s.SetMerge(&mergesFromDB[i]); err != nil {
+			logger.Error("failed to set merge", zap.Error(err))
 		}
 
-		expectSourceList := []string{*mergeList[i].SourceBasePath}
-		for _, volume := range mergeList[i].SourceVolumes {
-			expectSourceList = append(expectSourceList, volume.MountPoint)
-		}
-
-		if !utils.CompareStringSlices(currentSourceList, expectSourceList) {
-
-			logger.Info("merge source list not match - update needed",
-				zap.String("currentSourceList", strings.Join(currentSourceList, ",")),
-				zap.String("expectSourceList", strings.Join(expectSourceList, ",")))
-
-			if _, err := s.SetMerge(&mergeList[i]); err != nil {
-				logger.Error("failed to set merge sources", zap.Any("merge", mergeList[i]), zap.Error(err))
-			}
-		}
 	}
 }

@@ -172,7 +172,6 @@ func PostAddStorage(c *gin.Context) {
 		}
 	}
 
-	// TODO - unable to get UUID if calling lsblk shortly after creating partition
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	for _, blkChild := range currentDisk.Children {
 
