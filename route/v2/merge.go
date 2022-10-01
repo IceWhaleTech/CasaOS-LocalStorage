@@ -20,18 +20,21 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
 	}
 
-	merges, err := service.MyService.LocalStorage().GetMergeAll(params.MountPoint)
+	mergesFromDB, err := service.MyService.LocalStorage().GetMergeAllFromDB(params.MountPoint)
 	if err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
-	data := make([]codegen.Merge, 0, len(merges))
-	for _, merge := range merges {
+	message := "ok"
+
+	data := make([]codegen.Merge, 0, len(mergesFromDB))
+	for _, merge := range mergesFromDB {
+		// TODO - remove source volumes by UUID that are not attached, and write warnings to message
 		data = append(data, MergeAdapterOut(merge))
 	}
 
-	return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{Data: &data})
+	return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{Data: &data, Message: &message})
 }
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
@@ -84,11 +87,14 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		SourceBasePath: m.SourceBasePath,
 		SourceVolumes:  sourceVolumes,
 	}
+
 	merge, err := service.MyService.LocalStorage().SetMerge(merge)
 	if err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
+
+	// TODO - save merge to database
 
 	result := MergeAdapterOut(*merge)
 
