@@ -9,6 +9,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mergerfs"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -78,6 +79,8 @@ func (s *LocalStorageService) CreateMerge(merge *model2.Merge) error {
 		return err
 	}
 
+	merge.SourceVolumes = excludeVolumesWithWrongMountPointAndUUID(merge.SourceVolumes)
+
 	sources, err := buildSources(merge)
 	if err != nil {
 		return err
@@ -112,6 +115,8 @@ func (s *LocalStorageService) UpdateMerge(merge *model2.Merge) error {
 	if !file.Exists(merge.MountPoint) {
 		return ErrMergeMountPointDoesNotExist
 	}
+
+	merge.SourceVolumes = excludeVolumesWithWrongMountPointAndUUID(merge.SourceVolumes)
 
 	sources, err := buildSources(merge)
 	if err != nil {
@@ -178,6 +183,45 @@ func (s *LocalStorageService) CheckMergeMount() {
 	}
 }
 
+// filter out any volume that are not mounted based on its UUID and mount point (in reality, could have a different disk mounted on the same path)
+func excludeVolumesWithWrongMountPointAndUUID(volumes []*model2.Volume) []*model2.Volume {
+	return filterVolumes(volumes, func(v *model2.Volume) bool {
+		partitions, err := partition.GetPartitions(v.Path)
+		if err != nil {
+			logger.Error("failed to corresponding partition of volume", zap.Error(err), zap.String("path", v.Path))
+			return false
+		}
+
+		if len(partitions) != 1 {
+			logger.Error("there should be exactly one partition corresponding to the volume", zap.String("path", v.Path), zap.Int("partitions", len(partitions)))
+			return false
+		}
+
+		if partitions[0].LSBLKProperties["UUID"] != v.UUID {
+			logger.Error("UUID does not match actual", zap.Any("volume", v), zap.String("actual uuid", partitions[0].LSBLKProperties["UUID"]))
+			return false
+		}
+
+		if partitions[0].LSBLKProperties["MOUNTPOINT"] != v.MountPoint {
+			logger.Error("mount point does not match actual", zap.Any("volume", v), zap.String("actual mount point", partitions[0].LSBLKProperties["MOUNTPOINT"]))
+			return false
+		}
+
+		return true
+	})
+}
+
+func filterVolumes(volumes []*model2.Volume, filter func(*model2.Volume) bool) []*model2.Volume {
+	var filteredVolumes []*model2.Volume
+	for _, volume := range volumes {
+		result := filter(volume)
+		if result {
+			filteredVolumes = append(filteredVolumes, volume)
+		}
+	}
+	return filteredVolumes
+}
+
 func buildSources(merge *model2.Merge) ([]string, error) {
 	sources := make([]string, 0)
 
@@ -215,8 +259,6 @@ func buildSources(merge *model2.Merge) ([]string, error) {
 			)
 			return nil, ErrMergeMountPointSourceConflict
 		}
-
-		// TODO - append only when the volume with the same UUID is already attached, so we don't incorrectly merge the wrong volume (log this)
 
 		sources = append(sources, sourceVolume.MountPoint)
 	}
