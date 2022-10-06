@@ -10,8 +10,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mergerfs"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -22,11 +20,6 @@ var (
 	ErrMergeMountPointDoesNotExist   = errors.New("merge mount point does not exist")
 	ErrMergeMountPointSourceConflict = errors.New("source mount point should not be a child path of the merge mount point")
 )
-
-func init() {
-	// register the callback function to be called after a serial disk is deleted from database each time
-	sqlite.Hooks[sqlite.HookAfterDelete] = append(sqlite.Hooks[sqlite.HookAfterDelete], hookAfterDeleteVolume)
-}
 
 // Make sure the serial disk is removed from the merge list when it is deleted from database, to keep the database consistent.
 func hookAfterDeleteVolume(db *gorm.DB, model interface{}) {
@@ -75,22 +68,6 @@ func hookAfterDeleteVolume(db *gorm.DB, model interface{}) {
 	}
 }
 
-func (s *LocalStorageService) GetMergeAllFromDB(mountPoint *string) ([]model2.Merge, error) {
-	var merges []model2.Merge
-
-	if mountPoint == nil {
-		if err := s._db.Preload(model2.MergeSourceVolumes).Find(&merges).Error; err != nil {
-			return nil, err
-		}
-		return merges, nil
-	}
-
-	if err := s._db.Preload(model2.MergeSourceVolumes).Where(&model2.Merge{MountPoint: *mountPoint}).Limit(1).Find(&merges).Error; err != nil {
-		return nil, err
-	}
-	return merges, nil
-}
-
 // TODO - refactor SaveMergeToDB from SetMerge - let external logic to decide whether to call SaveMergeToDB or not
 func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, error) {
 	// check if the mount point exists
@@ -99,13 +76,9 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	}
 
 	// check if a merge already exists in database by mount point
-	var existingMergeInDB model2.Merge
-
-	isExistingMergeInDB := false
-	if result := s._db.Where(&model2.Merge{MountPoint: merge.MountPoint}).Limit(1).Find(&existingMergeInDB); result.Error != nil {
-		return nil, result.Error
-	} else if result.RowsAffected > 0 {
-		isExistingMergeInDB = true
+	existingMergeInDB, err := s.GetFirstMergeFromDB(&merge.MountPoint)
+	if err != nil {
+		return nil, err
 	}
 
 	// build sources
@@ -114,7 +87,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	// source base path
 	var sourceBasePath string
 
-	if isExistingMergeInDB && existingMergeInDB.SourceBasePath != nil {
+	if existingMergeInDB != nil && existingMergeInDB.SourceBasePath != nil {
 		// default to the existing source base path if not specified in the request
 		sourceBasePath = *existingMergeInDB.SourceBasePath
 	}
@@ -146,7 +119,7 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 	// source volumes
 	var sourceVolumes []*model2.Volume
 
-	if isExistingMergeInDB && existingMergeInDB.SourceVolumes != nil {
+	if existingMergeInDB != nil && existingMergeInDB.SourceVolumes != nil {
 		// default to the original source volumes if not specified in the request
 		sourceVolumes = existingMergeInDB.SourceVolumes
 	}
@@ -206,29 +179,15 @@ func (s *LocalStorageService) SetMerge(merge *model2.Merge) (*model2.Merge, erro
 		}
 	}
 
-	if isExistingMergeInDB {
-		// start association mode
-		if err := s._db.Model(&existingMergeInDB).Association(model2.MergeSourceVolumes).Error; err != nil {
+	if existingMergeInDB != nil {
+		if err := s.UpdateMergeSourcesInDB(existingMergeInDB, merge.SourceBasePath, merge.SourceVolumes); err != nil {
 			return nil, err
 		}
 
-		if merge.SourceBasePath != nil && *merge.SourceBasePath != *existingMergeInDB.SourceBasePath {
-			existingMergeInDB.SourceBasePath = merge.SourceBasePath
-			if err := s._db.Model(&existingMergeInDB).Update(model.MergeSourceBasePath, merge.SourceBasePath).Error; err != nil {
-				return nil, err
-			}
-		}
-
-		if merge.SourceVolumes != nil {
-			if err := s._db.Model(&existingMergeInDB).Association(model2.MergeSourceVolumes).Replace(merge.SourceVolumes); err != nil {
-				return nil, err
-			}
-		}
-
-		return &existingMergeInDB, nil
+		return existingMergeInDB, nil
 	}
 	// else (merge does not already exist in database), create a new one
-	if err := s._db.Create(merge).Error; err != nil {
+	if err := s.CreateMergeInDB(merge); err != nil {
 		return nil, err
 	}
 
