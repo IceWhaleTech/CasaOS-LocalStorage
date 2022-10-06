@@ -150,11 +150,13 @@ func ensureDefaultMergePoint() bool {
 		return true
 	}
 
-	if _, err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
+	merge := &model2.Merge{
 		FSType:         fs.MergerFSFullName,
 		MountPoint:     mountPoint,
 		SourceBasePath: &sourceBasePath,
-	}); err != nil {
+	}
+
+	if err := service.MyService.LocalStorage().CreateMerge(merge); err != nil {
 		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
 			logger.Info(err.Error(), zap.String("mount point", mountPoint))
 		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
@@ -163,6 +165,10 @@ func ensureDefaultMergePoint() bool {
 		} else {
 			panic(err)
 		}
+	}
+
+	if err := service.MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
+		panic(err)
 	}
 
 	return true
