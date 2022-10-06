@@ -80,21 +80,48 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		}
 	}
 
-	// set merge
-	merge := &model2.Merge{
-		FSType:         fstype,
-		MountPoint:     m.MountPoint,
-		SourceBasePath: m.SourceBasePath,
-		SourceVolumes:  sourceVolumes,
-	}
-
-	merge, err := service.MyService.LocalStorage().SetMerge(merge)
+	merge, err := service.MyService.LocalStorage().GetFirstMergeFromDB(m.MountPoint)
 	if err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
-	// TODO - save merge to database
+	if merge == nil {
+		merge = &model2.Merge{
+			FSType:         fstype,
+			MountPoint:     m.MountPoint,
+			SourceBasePath: m.SourceBasePath,
+			SourceVolumes:  sourceVolumes,
+		}
+
+		if err := service.MyService.LocalStorage().CreateMerge(merge); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+
+		if err := service.MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+	} else {
+		if m.SourceBasePath != nil {
+			merge.SourceBasePath = m.SourceBasePath
+		}
+
+		if m.SourceVolumePaths != nil {
+			merge.SourceVolumes = sourceVolumes
+		}
+
+		if err := service.MyService.LocalStorage().UpdateMerge(merge); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+
+		if err := service.MyService.LocalStorage().UpdateMergeSourcesInDB(merge); err != nil {
+			message := err.Error()
+			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+		}
+	}
 
 	result := MergeAdapterOut(*merge)
 

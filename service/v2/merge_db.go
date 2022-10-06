@@ -27,10 +27,10 @@ func (s *LocalStorageService) GetMergeAllFromDB(mountPoint *string) ([]model2.Me
 	return merges, nil
 }
 
-func (s *LocalStorageService) GetFirstMergeFromDB(mountPoint *string) (*model2.Merge, error) {
+func (s *LocalStorageService) GetFirstMergeFromDB(mountPoint string) (*model2.Merge, error) {
 	var merge model2.Merge
 
-	if result := s._db.Where(&model2.Merge{MountPoint: merge.MountPoint}).Limit(1).Find(&merge); result.Error != nil {
+	if result := s._db.Preload(model2.MergeSourceVolumes).Where(&model2.Merge{MountPoint: mountPoint}).Limit(1).Find(&merge); result.Error != nil {
 		return nil, result.Error
 	} else if result.RowsAffected == 0 {
 		return nil, nil
@@ -39,9 +39,13 @@ func (s *LocalStorageService) GetFirstMergeFromDB(mountPoint *string) (*model2.M
 	return &merge, nil
 }
 
-func (s *LocalStorageService) UpdateMergeSourcesInDB(existingMergeInDB *model2.Merge, sourceBasePath *string, sourceVolumes []*model2.Volume) error {
+func (s *LocalStorageService) UpdateMergeSourcesInDB(existingMergeInDB *model2.Merge) error {
 	if existingMergeInDB == nil {
 		return nil
+	}
+
+	if err := s._db.Model(existingMergeInDB).Update(model.MergeSourceBasePath, existingMergeInDB.SourceBasePath).Error; err != nil {
+		return err
 	}
 
 	// start association mode
@@ -49,17 +53,8 @@ func (s *LocalStorageService) UpdateMergeSourcesInDB(existingMergeInDB *model2.M
 		return err
 	}
 
-	if sourceBasePath != nil && *sourceBasePath != *existingMergeInDB.SourceBasePath {
-		existingMergeInDB.SourceBasePath = sourceBasePath
-		if err := s._db.Model(existingMergeInDB).Update(model.MergeSourceBasePath, sourceBasePath).Error; err != nil {
-			return err
-		}
-	}
-
-	if sourceVolumes != nil {
-		if err := s._db.Model(existingMergeInDB).Association(model2.MergeSourceVolumes).Replace(sourceBasePath); err != nil {
-			return err
-		}
+	if err := s._db.Model(existingMergeInDB).Association(model2.MergeSourceVolumes).Replace(existingMergeInDB.SourceVolumes); err != nil {
+		return err
 	}
 
 	return nil
