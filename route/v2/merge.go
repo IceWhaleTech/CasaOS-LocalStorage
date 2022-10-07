@@ -20,7 +20,7 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
 	}
 
-	mergesFromDB, err := service.MyService.LocalStorage().GetMergeAllFromDB(params.MountPoint)
+	merges, err := service.MyService.LocalStorage().GetMerges(params.MountPoint)
 	if err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
@@ -28,9 +28,8 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 
 	message := "ok"
 
-	data := make([]codegen.Merge, 0, len(mergesFromDB))
-	for _, merge := range mergesFromDB {
-		// TODO - remove source volumes by UUID that are not attached, and write warnings to message
+	data := make([]codegen.Merge, 0, len(merges))
+	for _, merge := range merges {
 		data = append(data, MergeAdapterOut(merge))
 	}
 

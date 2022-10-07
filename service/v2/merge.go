@@ -69,6 +69,19 @@ func hookAfterDeleteVolume(db *gorm.DB, model interface{}) {
 	}
 }
 
+func (s *LocalStorageService) GetMerges(mountPoint *string) ([]model2.Merge, error) {
+	mergesFromDB, err := s.GetMergeAllFromDB(mountPoint)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, merge := range mergesFromDB {
+		merge.SourceVolumes = excludeVolumesWithWrongMountPointAndUUID(merge.SourceVolumes)
+	}
+
+	return mergesFromDB, nil
+}
+
 func (s *LocalStorageService) CreateMerge(merge *model2.Merge) error {
 	if merge == nil {
 		logger.Error("`merge` should not be nil")
