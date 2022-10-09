@@ -199,19 +199,20 @@ func (s *LocalStorageService) CheckMergeMount() {
 // filter out any volume that are not mounted based on its UUID and mount point (in reality, could have a different disk mounted on the same path)
 func excludeVolumesWithWrongMountPointAndUUID(volumes []*model2.Volume) []*model2.Volume {
 	return filterVolumes(volumes, func(v *model2.Volume) bool {
-		partitions, err := partition.GetPartitions(v.Path)
+		path, err := partition.GetDevicePath(v.UUID)
 		if err != nil {
-			logger.Error("failed to corresponding partition of volume", zap.Error(err), zap.String("path", v.Path))
+			logger.Error("failed to corresponding device path by volume UUID", zap.Error(err), zap.String("uuid", v.UUID))
+			return false
+		}
+
+		partitions, err := partition.GetPartitions(path)
+		if err != nil {
+			logger.Error("failed to corresponding partition of volume", zap.Error(err), zap.String("path", path))
 			return false
 		}
 
 		if len(partitions) != 1 {
-			logger.Error("there should be exactly one partition corresponding to the volume", zap.String("path", v.Path), zap.Int("partitions", len(partitions)))
-			return false
-		}
-
-		if partitions[0].LSBLKProperties["UUID"] != v.UUID {
-			logger.Error("UUID does not match actual", zap.Any("volume", v), zap.String("actual uuid", partitions[0].LSBLKProperties["UUID"]))
+			logger.Error("there should be exactly one partition corresponding to the volume", zap.String("path", path), zap.Int("partitions", len(partitions)))
 			return false
 		}
 

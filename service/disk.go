@@ -31,7 +31,7 @@ type DiskService interface {
 	CheckSerialDiskMount()
 	FormatDisk(path, format string) ([]string, error)
 	GetDiskInfo(path string) model.LSBLKModel
-	GetPersistentType(path string) string
+	GetPersistentTypeByUUID(uuid string) string
 	GetUSBDriveStatusList() []model.USBDriveStatus
 	LSBLK(isUseCache bool) []model.LSBLKModel
 	MountDisk(path, volume string) (string, error)
@@ -355,9 +355,19 @@ func (d *diskService) UpdateMountPointInDB(m model2.Volume) error {
 }
 
 func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
+	partitions, err := partition.GetPartitions(path)
+	if err != nil {
+		logger.Error("error when getting partitions by path", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	if len(partitions) != 1 {
+		logger.Error("there should be only 1 partition returned", zap.Any("partitions", partitions))
+	}
+
 	var existingVolumes []model2.Volume
 
-	result := d.db.Where(&model2.Volume{Path: path, MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+	result := d.db.Where(&model2.Volume{UUID: partitions[0].PARTXProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
 
 	if result.Error != nil {
 		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
@@ -388,19 +398,19 @@ func (d *diskService) GetSerialAllFromDB() ([]model2.Volume, error) {
 	return volumes, nil
 }
 
-func (d *diskService) GetPersistentType(path string) string {
+func (d *diskService) GetPersistentTypeByUUID(uuid string) string {
 	// check if path is in database
 	var m model2.Volume
 
-	if result := d.db.Where(&model2.Volume{Path: path}).Limit(1).Find(&m); result.Error != nil {
-		logger.Error("error when finding the volume by path in database", zap.Error(result.Error), zap.String("path", path))
+	if result := d.db.Where(&model2.Volume{UUID: uuid}).Limit(1).Find(&m); result.Error != nil {
+		logger.Error("error when finding the volume by uuid in database", zap.Error(result.Error), zap.String("uuid", uuid))
 	} else if result.RowsAffected > 0 {
 		return PersistentTypeCasaOS
 	}
 
 	// check if it is in fstab
-	if entry, err := fstab.Get().GetEntryBySource(path); err != nil {
-		logger.Error("error when finding the volume by path in fstab", zap.Error(err), zap.String("path", path))
+	if entry, err := fstab.Get().GetEntryBySource(uuid); err != nil {
+		logger.Error("error when finding the volume by uuid in fstab", zap.Error(err), zap.String("uuid", uuid))
 	} else if entry != nil {
 		return PersistentTypeFStab
 	}
