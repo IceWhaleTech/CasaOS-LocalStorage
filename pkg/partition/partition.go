@@ -14,22 +14,32 @@ type Partition struct {
 
 // rootDevice - root device, e.g. /dev/sda
 func GetPartitions(rootDevice string) ([]Partition, error) {
-	// partx
-	out, err := executeCommand("partx", "--pairs", "--bytes", "--output-all", rootDevice)
-	if err != nil {
-		return nil, err
-	}
-	partxPartitions := parsePARTXOutput(out)
+	var partitions []Partition
 
 	// lsblk
-	out, err = executeCommand("lsblk", "--pairs", "--bytes", "--output-all", rootDevice)
+	out, err := executeCommand("lsblk", "--pairs", "--bytes", "--output-all", rootDevice)
 	if err != nil {
 		return nil, err
 	}
 	lsblkPartitions := parseLSBLKOutput(out)
 
+	if len(lsblkPartitions) == 0 {
+		return partitions, nil
+	}
+
+	// partx
+	out, err = executeCommand("partx", "--pairs", "--bytes", "--output-all", rootDevice)
+	if err != nil {
+		return nil, err
+	}
+	partxPartitions := parsePARTXOutput(out)
+
+	if len(partxPartitions) == 0 {
+		return partitions, nil
+	}
+
 	// merge
-	partitions := mergeOutputs(lsblkPartitions, partxPartitions)
+	partitions = mergeOutputs(lsblkPartitions, partxPartitions)
 
 	return partitions, nil
 }
