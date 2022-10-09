@@ -12,6 +12,15 @@ type Partition struct {
 	PARTXProperties map[string]string
 }
 
+func GetDevicePath(uuid string) (string, error) {
+	out, err := executeCommand("blkid", "--uuid", uuid)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes.TrimSpace(out)), nil
+}
+
 // rootDevice - root device, e.g. /dev/sda
 func GetPartitions(rootDevice string) ([]Partition, error) {
 	var partitions []Partition

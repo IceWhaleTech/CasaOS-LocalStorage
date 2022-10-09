@@ -6,6 +6,7 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
@@ -66,7 +67,12 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		for _, volumePath := range *m.SourceVolumePaths {
 			volumeFound := false
 			for i := range allVolumes {
-				if volumePath == allVolumes[i].Path {
+				path, err := partition.GetDevicePath(allVolumes[i].UUID)
+				if err != nil {
+					continue
+				}
+
+				if volumePath == path {
 					volumeFound = true
 					sourceVolumes = append(sourceVolumes, &allVolumes[i])
 				}
@@ -134,7 +140,11 @@ func MergeAdapterOut(m model2.Merge) codegen.Merge {
 
 	sourceVolumePaths := make([]string, 0, len(m.SourceVolumes))
 	for _, volume := range m.SourceVolumes {
-		sourceVolumePaths = append(sourceVolumePaths, volume.Path)
+		path, err := partition.GetDevicePath(volume.UUID)
+		if err != nil {
+			continue
+		}
+		sourceVolumePaths = append(sourceVolumePaths, path)
 	}
 
 	return codegen.Merge{

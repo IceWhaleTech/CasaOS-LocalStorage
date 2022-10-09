@@ -86,7 +86,7 @@ func GetStorageList(c *gin.Context) {
 				Path:        blkChild.Path,
 				Type:        blkChild.FsType,
 				DriveName:   blkChild.Name,
-				PersistedIn: service.MyService.Disk().GetPersistentType(blkChild.Path),
+				PersistedIn: service.MyService.Disk().GetPersistentTypeByUUID(blkChild.UUID),
 			}
 
 			if len(blkChild.Label) == 0 {
@@ -193,7 +193,6 @@ func PostAddStorage(c *gin.Context) {
 
 		m := model2.Volume{
 			MountPoint: b.MountPoint,
-			Path:       b.Path,
 			UUID:       b.UUID,
 			State:      0,
 			CreatedAt:  time.Now().Unix(),
@@ -285,7 +284,6 @@ func PutFormatStorage(c *gin.Context) {
 
 	m := model2.Volume{
 		MountPoint: mountPoint,
-		Path:       currentDisk.Path,
 		UUID:       currentDisk.UUID,
 		State:      0,
 		CreatedAt:  time.Now().Unix(),
