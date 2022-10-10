@@ -26,13 +26,11 @@ func TestHookAfterDeleteSerialDisk(t *testing.T) {
 	// create two serial disks in db
 	expectedVolume1 := model2.Volume{
 		UUID:       "85022acb-b5a2-424e-bfa9-6acb67d17cb8",
-		State:      0,
 		MountPoint: "/mnt/sda",
 	}
 
 	expectedVolume2 := model2.Volume{
 		UUID:       "36c94c85-debf-49b6-9f19-866c14b3a0c6",
-		State:      0,
 		MountPoint: "/mnt/sdb",
 	}
 
