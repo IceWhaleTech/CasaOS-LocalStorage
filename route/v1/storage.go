@@ -194,7 +194,6 @@ func PostAddStorage(c *gin.Context) {
 		m := model2.Volume{
 			MountPoint: b.MountPoint,
 			UUID:       b.UUID,
-			State:      0,
 			CreatedAt:  time.Now().Unix(),
 		}
 
@@ -285,7 +284,6 @@ func PutFormatStorage(c *gin.Context) {
 	m := model2.Volume{
 		MountPoint: mountPoint,
 		UUID:       currentDisk.UUID,
-		State:      0,
 		CreatedAt:  time.Now().Unix(),
 	}
 
