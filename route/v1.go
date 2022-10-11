@@ -12,16 +12,19 @@ import (
 )
 
 func InitV1Router() *gin.Engine {
-	r := gin.Default()
-	r.Use(middleware.Cors())
-	r.Use(middleware.WriteLog())
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
-
 	// check if environment variable is set
-	if ginMode, success := os.LookupEnv("GIN_MODE"); success {
-		gin.SetMode(ginMode)
-	} else {
-		gin.SetMode(gin.ReleaseMode)
+	ginMode, success := os.LookupEnv(gin.EnvGinMode)
+	if !success {
+		ginMode = gin.ReleaseMode
+	}
+	gin.SetMode(ginMode)
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(middleware.Cors())
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
+	if ginMode != gin.ReleaseMode {
+		r.Use(middleware.WriteLog())
 	}
 
 	v1Group := r.Group("/v1")
