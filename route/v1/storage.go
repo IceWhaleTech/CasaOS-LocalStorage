@@ -241,16 +241,15 @@ func PutFormatStorage(c *gin.Context) {
 	}
 
 	path := js["path"]
-	t := "ext4"
 	mountPoint := js["volume"]
 
-	if len(path) == 0 || len(t) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
+	if len(path) == 0 {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 		return
 	}
 
 	if _, ok := diskMap[path]; ok {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 		return
 	}
 
@@ -264,8 +263,7 @@ func PutFormatStorage(c *gin.Context) {
 		return
 	}
 
-	_, err := service.MyService.Disk().FormatDisk(path, t)
-	if err != nil {
+	if err := service.MyService.Disk().FormatDisk(path); err != nil {
 		delete(diskMap, path)
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 	}
@@ -287,7 +285,10 @@ func PutFormatStorage(c *gin.Context) {
 		CreatedAt:  time.Now().Unix(),
 	}
 
-	service.MyService.Disk().SaveMountPointToDB(m)
+	if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
@@ -324,7 +325,11 @@ func DeleteStorage(c *gin.Context) {
 	}
 
 	// delete data
-	defer service.MyService.Disk().DeleteMountPointFromDB(path, mountPoint)
+	defer func() {
+		if err := service.MyService.Disk().DeleteMountPointFromDB(path, mountPoint); err != nil {
+			logger.Error("error when deleting mount point from database", zap.Error(err))
+		}
+	}()
 	defer service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client

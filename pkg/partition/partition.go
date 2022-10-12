@@ -5,12 +5,15 @@ import (
 	"errors"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 type Partition struct {
 	LSBLKProperties map[string]string
 	PARTXProperties map[string]string
 }
+
+var ErrNoPartitionFound = errors.New("no partition found after partition creation")
 
 func GetDevicePath(uuid string) (string, error) {
 	out, err := executeCommand("blkid", "--uuid", uuid)
@@ -54,18 +57,39 @@ func GetPartitions(rootDevice string) ([]Partition, error) {
 }
 
 // rootDevice - root device, e.g. /dev/sda
-func AddPartition(rootDevice string) error {
+func AddPartition(rootDevice string) ([]Partition, error) {
 	// add partition
-	if _, err := executeCommand("parted", "-s", rootDevice, "mkpart", "primary", "ext4", "0", "100%"); err != nil {
-		return err
+	if _, err := executeCommand("parted", "-s", rootDevice, "mkpart", "primary", "0", "100%"); err != nil {
+		return nil, err
 	}
 
 	// inform the operating system about partition table changes
 	if _, err := executeCommand("partprobe", "-s", rootDevice); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	var partitions []Partition
+	count := 5
+	for count > 0 {
+		// wait for partition to appear
+		result, err := GetPartitions(rootDevice)
+		if err != nil {
+			return nil, err
+		}
+		if len(result) > 0 {
+			partitions = result
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+		count--
+	}
+
+	if len(partitions) == 0 {
+		return nil, ErrNoPartitionFound
+	}
+
+	return partitions, nil
 }
 
 func CreatePartitionTable(rootDevice string) error {
