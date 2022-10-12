@@ -4,6 +4,7 @@ import (
 	json2 "encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -29,7 +30,7 @@ type DiskService interface {
 	AddPartition(path string) error
 	DeletePartition(path string) error
 	CheckSerialDiskMount()
-	FormatDisk(path, format string) ([]string, error)
+	FormatDisk(path string) error
 	GetDiskInfo(path string) model.LSBLKModel
 	GetPersistentTypeByUUID(uuid string) string
 	GetUSBDriveStatusList() []model.USBDriveStatus
@@ -100,8 +101,29 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 }
 
 // 格式化硬盘
-func (d *diskService) FormatDisk(path, format string) ([]string, error) {
-	return command.ExecResultStrArray("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;FormatDisk " + path + " " + format)
+func (d *diskService) FormatDisk(path string) error {
+	// wait for partition path to be ready
+	count := 5
+	for count > 0 {
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				time.Sleep(1 * time.Second)
+				count--
+				continue
+			}
+			logger.Error("error when checking partition path", zap.Error(err), zap.String("path", path))
+			return err
+		}
+		break
+	}
+
+	logger.Info("formatting partition...", zap.String("path", path))
+	if err := partition.FormatPartition(path); err != nil {
+		logger.Error("failed to format partition", zap.Error(err), zap.String("path", path))
+		return err
+	}
+
+	return nil
 }
 
 // 移除挂载点,删除目录
@@ -141,22 +163,33 @@ func (d *diskService) AddPartition(path string) error {
 	}
 
 	logger.Info("creating partition...", zap.String("path", path))
-	if err := partition.AddPartition(path); err != nil {
+	partitions, err := partition.AddPartition(path)
+	if err != nil {
 		logger.Error("failed to create partition", zap.Error(err), zap.String("path", path))
 		return err
 	}
 
-	logger.Info("getting created partition...", zap.String("path", path))
-	partitions, err := partition.GetPartitions(path)
-	if err != nil {
-		logger.Error("failed to get created partition", zap.Error(err), zap.String("path", path))
-		return err
-	}
-
 	for _, p := range partitions {
-		logger.Info("formatting partition...", zap.String("path", p.LSBLKProperties["PATH"]))
-		if err := partition.FormatPartition(p.LSBLKProperties["PATH"]); err != nil {
-			logger.Error("failed to format partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]))
+		partitionPath := p.LSBLKProperties["PATH"]
+
+		// wait for partition path to be ready
+		count := 5
+		for count > 0 {
+			if _, err := os.Stat(partitionPath); err != nil {
+				if os.IsNotExist(err) {
+					time.Sleep(1 * time.Second)
+					count--
+					continue
+				}
+				logger.Error("error when checking partition path", zap.Error(err), zap.String("path", partitionPath))
+				return err
+			}
+			break
+		}
+
+		logger.Info("formatting partition...", zap.String("path", partitionPath))
+		if err := partition.FormatPartition(partitionPath); err != nil {
+			logger.Error("failed to format partition", zap.Error(err), zap.String("path", partitionPath))
 			return err
 		}
 	}
