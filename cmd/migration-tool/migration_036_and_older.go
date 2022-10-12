@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	interfaces "github.com/IceWhaleTech/CasaOS-Common"
@@ -67,6 +67,35 @@ func (u *migrationTool1) IsMigrationNeeded() (bool, error) {
 		return false, nil
 	}
 
+	legacyConfigFile, err := ini.Load(version.LegacyCasaOSConfigFilePath)
+	if err != nil {
+		return false, err
+	}
+
+	dbFile, err := getDBfile(legacyConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	legacyDB, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return false, err
+	}
+
+	defer legacyDB.Close()
+
+	tableExists, err := isTableExist(legacyDB, tableName)
+	if err != nil {
+		return false, err
+	}
+
+	if !tableExists {
+		return false, nil
+	}
+
 	_logger.Info("Migration is needed for a CasaOS version between 0.2.5 and 0.3.6...")
 	return true, nil
 }
@@ -106,16 +135,9 @@ func (u *migrationTool1) PreMigrate() error {
 		return err
 	}
 
-	dbPath := legacyConfigFile.Section("app").Key("DBPath").String()
-
-	dbFile := filepath.Join(dbPath, "db", "casaOS.db")
-
-	if _, err := os.Stat(dbFile); err != nil {
-		dbFile = filepath.Join(defaultDBPath, "db", "casaOS.db")
-
-		if _, err := os.Stat(dbFile); err != nil {
-			return err
-		}
+	dbFile, err := getDBfile(legacyConfigFile)
+	if err != nil {
+		return err
 	}
 
 	_logger.Info("Creating a backup %s if it doesn't exist...", dbFile+extension)
@@ -132,8 +154,6 @@ func (u *migrationTool1) Migrate() error {
 	if err != nil {
 		return err
 	}
-
-	checkToken2_11()
 
 	migrateConfigurationFile1(legacyConfigFile)
 
@@ -160,16 +180,9 @@ func (u *migrationTool1) PostMigrate() error {
 		return err
 	}
 
-	dbPath := legacyConfigFile.Section("app").Key("DBPath").String()
-
-	dbFile := filepath.Join(dbPath, "db", "casaOS.db")
-
-	if _, err := os.Stat(dbFile); err != nil {
-		dbFile = filepath.Join(defaultDBPath, "db", "casaOS.db")
-
-		if _, err := os.Stat(dbFile); err != nil {
-			return nil
-		}
+	dbFile, err := getDBfile(legacyConfigFile)
+	if err != nil {
+		return err
 	}
 
 	legacyDB, err := sql.Open("sqlite3", dbFile)
@@ -201,18 +214,6 @@ func NewMigrationToolFor036AndOlder() interfaces.MigrationTool {
 	return &migrationTool1{}
 }
 
-func checkToken2_11() {
-	deviceTree, err := service.MyService.USB().GetDeviceTree()
-	if err != nil {
-		panic(err)
-	}
-
-	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && strings.ToLower(config.ServerInfo.USBAutoMount) != "true" && strings.Contains(deviceTree, "Raspberry Pi") {
-		service.MyService.USB().UpdateUSBAutoMount("False")
-		service.MyService.USB().ExecUSBAutoMountShell("False")
-	}
-}
-
 func migrateConfigurationFile1(legacyConfigFile *ini.File) {
 	_logger.Info("Updating %s with settings from legacy configuration...", config.LocalStorageConfigFilePath)
 	config.InitSetup(config.LocalStorageConfigFilePath)
@@ -242,16 +243,9 @@ func migrateConfigurationFile1(legacyConfigFile *ini.File) {
 func migrationDisk1(legacyConfigFile *ini.File) error {
 	_logger.Info("Migrating disk information from legacy database to local storage database...")
 
-	dbPath := legacyConfigFile.Section("app").Key("DBPath").String()
-
-	dbFile := filepath.Join(dbPath, "db", "casaOS.db")
-
-	if _, err := os.Stat(dbFile); err != nil {
-		dbFile = filepath.Join(defaultDBPath, "db", "casaOS.db")
-
-		if _, err := os.Stat(dbFile); err != nil {
-			return err
-		}
+	dbFile, err := getDBfile(legacyConfigFile)
+	if err != nil {
+		return err
 	}
 
 	legacyDB, err := sql.Open("sqlite3", dbFile)
@@ -322,4 +316,24 @@ func isTableExist(legacyDB *sql.DB, tableName string) (bool, error) {
 	defer rows.Close()
 
 	return rows.Next(), nil
+}
+
+func getDBfile(legacyConfigFile *ini.File) (string, error) {
+	if legacyConfigFile == nil {
+		return "", errors.New("legacy configuration file is nil")
+	}
+
+	dbPath := legacyConfigFile.Section("app").Key("DBPath").String()
+
+	dbFile := filepath.Join(dbPath, "db", "casaOS.db")
+
+	if _, err := os.Stat(dbFile); err != nil {
+		dbFile = filepath.Join(defaultDBPath, "db", "casaOS.db")
+
+		if _, err := os.Stat(dbFile); err != nil {
+			return "", err
+		}
+	}
+
+	return dbFile, nil
 }
