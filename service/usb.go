@@ -1,6 +1,8 @@
 package service
 
 import (
+	"os"
+
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	command2 "github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/shirou/gopsutil/host"
@@ -36,7 +38,22 @@ func (s *usbService) GetSysInfo() host.InfoStat {
 }
 
 func (s *usbService) GetDeviceTree() (string, error) {
-	return command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDeviceTree")
+	deviceTreeFilePath := "/proc/device-tree/model"
+
+	if _, err := os.Stat(deviceTreeFilePath); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	// read string from deviceTreeFilePath
+	deviceTree, err := os.ReadFile(deviceTreeFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(deviceTree), nil
 }
 
 func NewUSBService() USBService {

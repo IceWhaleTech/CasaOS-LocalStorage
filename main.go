@@ -90,7 +90,21 @@ func init() {
 		service.MyService.LocalStorage().CheckMergeMount()
 	}
 
+	checkToken2_11()
+
 	ensureDefaultDirectories()
+}
+
+func checkToken2_11() {
+	deviceTree, err := service.MyService.USB().GetDeviceTree()
+	if err != nil {
+		panic(err)
+	}
+
+	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && strings.ToLower(config.ServerInfo.USBAutoMount) != "true" && strings.Contains(deviceTree, "Raspberry Pi") {
+		service.MyService.USB().UpdateUSBAutoMount("False")
+		service.MyService.USB().ExecUSBAutoMountShell("False")
+	}
 }
 
 func ensureDefaultDirectories() {
