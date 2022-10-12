@@ -203,7 +203,7 @@ func (u *migrationTool1) PostMigrate() error {
 
 	_logger.Info("Dropping `%s` table in legacy database...", tableName)
 
-	if _, err := legacyDB.Exec("DROP TABLE ?", tableName); err != nil {
+	if _, err := legacyDB.Exec("DROP TABLE " + tableName); err != nil {
 		_logger.Error("Failed to drop `%s` table in legacy database: %s", tableName, err)
 	}
 
@@ -267,7 +267,7 @@ func migrationDisk1(legacyConfigFile *ini.File) error {
 		return nil
 	}
 
-	rows, err := legacyDB.Query("SELECT id, uuid, mount_point, created_at FROM ?", tableName)
+	rows, err := legacyDB.Query("SELECT id, uuid, mount_point, created_at FROM " + tableName)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func migrationDisk1(legacyConfigFile *ini.File) error {
 }
 
 func isTableExist(legacyDB *sql.DB, tableName string) (bool, error) {
-	rows, err := legacyDB.Query("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", tableName)
+	rows, err := legacyDB.Query("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", tableName)
 	if err != nil {
 		return false, err
 	}
