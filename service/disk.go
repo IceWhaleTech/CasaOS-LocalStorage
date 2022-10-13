@@ -279,10 +279,11 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 				}
 				c = append(c, child)
 			}
-			// i.Format = strings.TrimSpace(command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskType " + i.Path))
+
 			if health {
 				i.Health = "OK"
 			}
+
 			i.FSUsed = strconv.FormatUint(fsused, 10)
 			i.Children = c
 			if fsused > 0 {
