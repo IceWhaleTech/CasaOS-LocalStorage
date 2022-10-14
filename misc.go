@@ -125,8 +125,8 @@ func monitorUSB() {
 	for {
 		select {
 		case uevent := <-queue:
-			if uevent.Env["DEVTYPE"] == "disk" {
-				time.Sleep(time.Microsecond * 500)
+			if uevent.Env["DEVTYPE"] == "partition" && uevent.Env["ID_BUS"] == "usb" {
+				time.Sleep(1 * time.Second)
 				sendUSBBySocket()
 				continue
 			}
