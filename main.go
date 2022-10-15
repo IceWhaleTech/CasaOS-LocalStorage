@@ -198,6 +198,10 @@ func main() {
 		logger.Error("crontab add func error", zap.Error(err))
 	}
 
+	crontab.Start()
+
+	defer crontab.Stop()
+
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
 	if err != nil {
 		panic(err)
