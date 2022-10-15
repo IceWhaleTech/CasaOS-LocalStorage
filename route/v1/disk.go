@@ -38,7 +38,7 @@ type StorageMessage struct {
 // @Router /disk/list [get]
 func GetDiskList(c *gin.Context) {
 	blkList := service.MyService.Disk().LSBLK(false)
-	foundSystem := false
+	foundSystem := false // todo - need a better way to detect system disk, instead of relying mountpoint being /
 
 	dbList, err := service.MyService.Disk().GetSerialAllFromDB()
 	if err != nil {
@@ -110,7 +110,7 @@ func GetDiskList(c *gin.Context) {
 			}
 		}
 
-		if !isDiskSupported(currentDisk) {
+		if !service.IsDiskSupported(currentDisk) {
 			continue
 		}
 
@@ -186,7 +186,9 @@ func DeleteDisksUmount(c *gin.Context) {
 		}
 
 		// delete data
-		service.MyService.Disk().DeleteMountPointFromDB(v.Path, v.MountPoint)
+		if err := service.MyService.Disk().DeleteMountPointFromDB(v.Path, v.MountPoint); err != nil {
+			logger.Error("error when deleting mount point from database", zap.Error(err), zap.String("path", v.Path), zap.String("mount point", v.MountPoint))
+		}
 
 		if err := service.MyService.Shares().DeleteShare(v.MountPoint); err != nil {
 			logger.Error("error when deleting share by mount point", zap.Error(err), zap.String("mount point", v.MountPoint))
@@ -213,14 +215,4 @@ func DeleteDisksUmount(c *gin.Context) {
 	}()
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
-}
-
-func isDiskSupported(d model1.LSBLKModel) bool {
-	return d.Tran == "sata" ||
-		d.Tran == "nvme" ||
-		d.Tran == "spi" ||
-		d.Tran == "sas" ||
-		strings.Contains(d.SubSystems, "virtio") ||
-		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
-		(d.Tran == "ata" && d.Type == "disk")
 }

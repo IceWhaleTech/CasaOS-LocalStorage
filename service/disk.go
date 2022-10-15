@@ -543,3 +543,13 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 func NewDiskService(db *gorm.DB) DiskService {
 	return &diskService{db: db}
 }
+
+func IsDiskSupported(d model.LSBLKModel) bool {
+	return d.Tran == "sata" ||
+		d.Tran == "nvme" ||
+		d.Tran == "spi" ||
+		d.Tran == "sas" ||
+		strings.Contains(d.SubSystems, "virtio") ||
+		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
+		(d.Tran == "ata" && d.Type == "disk")
+}

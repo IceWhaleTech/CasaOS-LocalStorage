@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,67 +16,74 @@ import (
 )
 
 func sendDiskBySocket() {
-	list := service.MyService.Disk().LSBLK(true)
+	blkList := service.MyService.Disk().LSBLK(true)
 
 	status := model.DiskStatus{}
 	healthy := true
-	findSystem := 0
+	foundSystem := 0 // todo - need a better way to detect system disk, instead of relying mountpoint being /
 
-	for i := 0; i < len(list); i++ {
-		if len(list[i].Children) > 0 && findSystem == 0 {
-			for j := 0; j < len(list[i].Children); j++ {
-				if len(list[i].Children[j].Children) > 0 {
-					for _, v := range list[i].Children[j].Children {
-						if v.MountPoint == "/" {
-							s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-							a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-							u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-							status.Size += s
-							status.Avail += a
-							status.Used += u
-							findSystem = 1
-							break
-						}
-					}
-				} else {
-					if list[i].Children[j].MountPoint == "/" {
-						s, _ := strconv.ParseUint(list[i].Children[j].FSSize, 10, 64)
-						a, _ := strconv.ParseUint(list[i].Children[j].FSAvail, 10, 64)
-						u, _ := strconv.ParseUint(list[i].Children[j].FSUsed, 10, 64)
+	for _, currentDisk := range blkList {
+
+		if foundSystem == 0 {
+			for _, blkChild := range currentDisk.Children {
+
+				for _, v := range blkChild.Children {
+					if v.MountPoint == "/" {
+						s, _ := strconv.ParseUint(v.FSSize, 10, 64)
+						a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
+						u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
 						status.Size += s
 						status.Avail += a
 						status.Used += u
-						findSystem = 1
+						foundSystem = 1
 						break
 					}
 				}
-			}
-		}
-		if findSystem == 1 {
-			findSystem++
-			continue
-		}
-		if list[i].Tran == "sata" || list[i].Tran == "nvme" || list[i].Tran == "spi" || list[i].Tran == "sas" || strings.Contains(list[i].SubSystems, "virtio") || (list[i].Tran == "ata" && list[i].Type == "disk") {
-			temp := service.MyService.Disk().SmartCTL(list[i].Path)
-			if reflect.DeepEqual(temp, model.SmartctlA{}) {
-				healthy = true
-			} else {
-				healthy = temp.SmartStatus.Passed
-			}
 
-			// list[i].Temperature = temp.Temperature.Current
-
-			if len(list[i].Children) > 0 {
-				for _, v := range list[i].Children {
-					s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-					a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-					u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
+				if blkChild.MountPoint == "/" {
+					s, _ := strconv.ParseUint(blkChild.FSSize, 10, 64)
+					a, _ := strconv.ParseUint(blkChild.FSAvail, 10, 64)
+					u, _ := strconv.ParseUint(blkChild.FSUsed, 10, 64)
 					status.Size += s
 					status.Avail += a
 					status.Used += u
+					foundSystem = 1
+					break
 				}
-			}
 
+			}
+		}
+
+		// foundSystem is a flow control variable that goes thru 3 stages:
+		//
+		// 0           - system storage not found yet
+		///1           - system storage found
+		// 2 or larger - system has been found already
+		if foundSystem == 1 {
+			foundSystem++
+			// in next iteration, this tells logic above there is no need to look for system storage again
+			// it also tells next iteration to continue counting other storages
+			continue
+		}
+
+		if !service.IsDiskSupported(currentDisk) {
+			continue
+		}
+
+		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
+		if reflect.DeepEqual(temp, model.SmartctlA{}) {
+			healthy = true
+		} else {
+			healthy = temp.SmartStatus.Passed
+		}
+
+		for _, v := range currentDisk.Children {
+			s, _ := strconv.ParseUint(v.FSSize, 10, 64)
+			a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
+			u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
+			status.Size += s
+			status.Avail += a
+			status.Used += u
 		}
 	}
 
@@ -137,7 +143,6 @@ func monitorUSB() {
 }
 
 func sendStorageStats() {
-	logger.Info("sending stats to CasaOS core...")
 	sendDiskBySocket()
 	sendUSBBySocket()
 }
