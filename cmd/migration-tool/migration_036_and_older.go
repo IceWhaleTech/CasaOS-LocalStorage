@@ -27,7 +27,8 @@ const (
 )
 
 func (u *migrationTool1) IsMigrationNeeded() (bool, error) {
-	if status, err := version.GetGlobalMigrationStatus(localStorageNameShort); err == nil {
+	status, err := version.GetGlobalMigrationStatus(localStorageNameShort)
+	if err == nil {
 		_status = status
 		if status.LastMigratedVersion != "" {
 			_logger.Info("Last migrated version: %s", status.LastMigratedVersion)
@@ -37,18 +38,27 @@ func (u *migrationTool1) IsMigrationNeeded() (bool, error) {
 		}
 	}
 
-	if _, err := os.Stat(version.LegacyCasaOSConfigFilePath); err != nil {
+	_, err = os.Stat(version.LegacyCasaOSConfigFilePath)
+	if err != nil {
 		_logger.Info("`%s` not found, migration is not needed.", version.LegacyCasaOSConfigFilePath)
 		return false, nil
 	}
 
-	majorVersion, minorVersion, patchVersion, err := version.DetectLegacyVersion()
-	if err != nil {
-		if err == version.ErrLegacyVersionNotFound {
-			return false, nil
-		}
+	var majorVersion, minorVersion, patchVersion int
 
-		return false, err
+	majorVersion, minorVersion, patchVersion, err = version.DetectVersion()
+	if err != nil {
+		_logger.Info("version not detected - trying to detect if it is a legacy version (v0.3.4 or earlier)...")
+		majorVersion, minorVersion, patchVersion, err = version.DetectLegacyVersion()
+		if err != nil {
+			if err == version.ErrLegacyVersionNotFound {
+				_logger.Info("legacy version not detected, migration is not needed.")
+				return false, nil
+			}
+
+			_logger.Error("failed to detect legacy version: %s", err)
+			return false, err
+		}
 	}
 
 	if majorVersion != 0 {
@@ -69,19 +79,24 @@ func (u *migrationTool1) IsMigrationNeeded() (bool, error) {
 
 	legacyConfigFile, err := ini.Load(version.LegacyCasaOSConfigFilePath)
 	if err != nil {
+		_logger.Error("failed to load config file %s - %s", version.LegacyCasaOSConfigFilePath, err.Error())
 		return false, err
 	}
 
 	dbFile, err := getDBfile(legacyConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
+			_logger.Info("database file not found from %s, migration is not needed.", version.LegacyCasaOSConfigFilePath)
 			return false, nil
 		}
+
+		_logger.Error("failed to get database file from %s - %s", version.LegacyCasaOSConfigFilePath, err.Error())
 		return false, err
 	}
 
 	legacyDB, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
+		_logger.Error("failed to open database file %s - %s", dbFile, err.Error())
 		return false, err
 	}
 
@@ -89,10 +104,12 @@ func (u *migrationTool1) IsMigrationNeeded() (bool, error) {
 
 	tableExists, err := isTableExist(legacyDB, tableName)
 	if err != nil {
+		_logger.Error("failed to check if table %s exists - %s", tableName, err.Error())
 		return false, err
 	}
 
 	if !tableExists {
+		_logger.Info("table %s does not exist, migration is not needed.", tableName)
 		return false, nil
 	}
 
@@ -157,7 +174,7 @@ func (u *migrationTool1) Migrate() error {
 
 	migrateConfigurationFile1(legacyConfigFile)
 
-	return migrationDisk1(legacyConfigFile)
+	return migrateDisk1(legacyConfigFile)
 }
 
 func (u *migrationTool1) PostMigrate() error {
@@ -173,41 +190,11 @@ func (u *migrationTool1) PostMigrate() error {
 		return err
 	}
 
-	_logger.Info("Deleting legacy `USBAutoMount` in %s...", version.LegacyCasaOSConfigFilePath)
-	legacyConfigFile.Section("app").DeleteKey("USBAutoMount")
-
-	if err := legacyConfigFile.SaveTo(version.LegacyCasaOSConfigFilePath); err != nil {
+	if err := postMigrateConfigurationFile1(legacyConfigFile); err != nil {
 		return err
 	}
 
-	dbFile, err := getDBfile(legacyConfigFile)
-	if err != nil {
-		return err
-	}
-
-	legacyDB, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return err
-	}
-
-	defer legacyDB.Close()
-
-	tableExists, err := isTableExist(legacyDB, tableName)
-	if err != nil {
-		return err
-	}
-
-	if !tableExists {
-		return nil
-	}
-
-	_logger.Info("Dropping `%s` table in legacy database...", tableName)
-
-	if _, err := legacyDB.Exec("DROP TABLE " + tableName); err != nil {
-		_logger.Error("Failed to drop `%s` table in legacy database: %s", tableName, err)
-	}
-
-	return nil
+	return postMigrateDisk1(legacyConfigFile)
 }
 
 func NewMigrationToolFor036AndOlder() interfaces.MigrationTool {
@@ -240,7 +227,18 @@ func migrateConfigurationFile1(legacyConfigFile *ini.File) {
 	config.SaveSetup(config.LocalStorageConfigFilePath)
 }
 
-func migrationDisk1(legacyConfigFile *ini.File) error {
+func postMigrateConfigurationFile1(legacyConfigFile *ini.File) error {
+	_logger.Info("Deleting legacy `USBAutoMount` in %s...", version.LegacyCasaOSConfigFilePath)
+	legacyConfigFile.Section("app").DeleteKey("USBAutoMount")
+
+	if err := legacyConfigFile.SaveTo(version.LegacyCasaOSConfigFilePath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func migrateDisk1(legacyConfigFile *ini.File) error {
 	_logger.Info("Migrating disk information from legacy database to local storage database...")
 
 	dbFile, err := getDBfile(legacyConfigFile)
@@ -291,6 +289,13 @@ func migrationDisk1(legacyConfigFile *ini.File) error {
 			return err
 		}
 
+		_logger.Info("volume: %+v", v)
+
+		if v.UUID == "" {
+			_logger.Info("UUID is empty, skipping...")
+			continue
+		}
+
 		if _, ok := uuidMapInNewDB[v.UUID]; ok {
 			_logger.Info("volume %s (mount point: %s) already exists in local storage database, skipping...", v.UUID, v.MountPoint)
 			continue
@@ -302,6 +307,37 @@ func migrationDisk1(legacyConfigFile *ini.File) error {
 		if err := diskService.SaveMountPointToDB(*v); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func postMigrateDisk1(legacyConfigFile *ini.File) error {
+	dbFile, err := getDBfile(legacyConfigFile)
+	if err != nil {
+		return err
+	}
+
+	legacyDB, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return err
+	}
+
+	defer legacyDB.Close()
+
+	tableExists, err := isTableExist(legacyDB, tableName)
+	if err != nil {
+		return err
+	}
+
+	if !tableExists {
+		return nil
+	}
+
+	_logger.Info("Dropping `%s` table in legacy database...", tableName)
+
+	if _, err := legacyDB.Exec("DROP TABLE " + tableName); err != nil {
+		_logger.Error("Failed to drop `%s` table in legacy database: %s", tableName, err)
 	}
 
 	return nil
