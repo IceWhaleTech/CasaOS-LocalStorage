@@ -111,14 +111,14 @@ func hookFunc(name string) func(d *gorm.DB) {
 
 func GetDBByFile(dbFile string) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
 
 	c, _ := db.DB()
 	c.SetMaxIdleConns(10)
 	c.SetMaxOpenConns(100)
 	c.SetConnMaxIdleTime(time.Second * 1000)
-	if err != nil {
-		panic(err)
-	}
 
 	if err := db.AutoMigrate(&model.Merge{}, &model.Volume{}); err != nil {
 		panic(err)
