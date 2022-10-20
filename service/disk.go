@@ -305,6 +305,8 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 }
 
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
+	logger.Info("trying to get disk info...", zap.String("path", path))
+
 	str := command.ExecLSBLKByPath(path)
 	if str == nil {
 		logger.Error("Failed to exec shell - lsblk exec error")
@@ -312,7 +314,12 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 	}
 
 	var ml []model.LSBLKModel
-	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &ml)
+
+	blockdevices := gjson.Get(string(str), "blockdevices").String()
+
+	logger.Info(blockdevices)
+
+	err := json2.Unmarshal([]byte(blockdevices), &ml)
 	if err != nil {
 		logger.Error("Failed to unmarshal json", zap.Error(err))
 		return model.LSBLKModel{}
