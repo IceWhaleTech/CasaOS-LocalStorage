@@ -354,7 +354,12 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		return "", err
 	}
 
-	return command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint)
+	if out, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint); err != nil {
+		logger.Error("error when mounting", zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint), zap.String("output", string(out)))
+		return out, err
+	}
+
+	return "", partition.ProbePartition(path)
 }
 
 func (d *diskService) SaveMountPointToDB(m model2.Volume) error {
