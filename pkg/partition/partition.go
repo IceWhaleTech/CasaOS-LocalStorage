@@ -56,6 +56,15 @@ func GetPartitions(rootDevice string) ([]Partition, error) {
 	return partitions, nil
 }
 
+// inform the operating system about partition table changes
+func ProbePartition(device string) error {
+	if _, err := executeCommand("partprobe", "-s", device); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // rootDevice - root device, e.g. /dev/sda
 func AddPartition(rootDevice string) ([]Partition, error) {
 	// add partition
@@ -63,8 +72,7 @@ func AddPartition(rootDevice string) ([]Partition, error) {
 		return nil, err
 	}
 
-	// inform the operating system about partition table changes
-	if _, err := executeCommand("partprobe", "-s", rootDevice); err != nil {
+	if err := ProbePartition(rootDevice); err != nil {
 		return nil, err
 	}
 
@@ -126,12 +134,7 @@ func DeletePartition(rootDevice string, number int) error {
 		return err
 	}
 
-	// inform the operating system about partition table changes
-	if _, err := executeCommand("partprobe", "-s", rootDevice); err != nil {
-		return err
-	}
-
-	return nil
+	return ProbePartition(rootDevice)
 }
 
 func executeCommand(name string, arg ...string) ([]byte, error) {

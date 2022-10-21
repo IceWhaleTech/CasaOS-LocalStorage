@@ -186,9 +186,9 @@ func PostAddStorage(c *gin.Context) {
 		var b model1.LSBLKModel
 		retry := 3 // ugly workaround for lsblk not returning UUID after creating partition on time - need a better solution
 		for b.UUID == "" && retry > 0 {
+			time.Sleep(1 * time.Second)
 			b = service.MyService.Disk().GetDiskInfo(blkChild.Path)
 			retry--
-			time.Sleep(1 * time.Second)
 		}
 
 		m := model2.Volume{
