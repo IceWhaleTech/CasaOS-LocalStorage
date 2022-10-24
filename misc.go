@@ -15,6 +15,19 @@ import (
 	"go.uber.org/zap"
 )
 
+func walkBlk(rootBlk model.LSBLKModel, shouldStop func(blk model.LSBLKModel) bool) model.LSBLKModel {
+	// TODO - implement this
+	if shouldStop(rootBlk) {
+		return rootBlk
+	}
+
+	for _, blk := range rootBlk.Children {
+		walkBlk(blk, shouldStop)
+	}
+
+	return rootBlk
+}
+
 func sendDiskBySocket() {
 	blkList := service.MyService.Disk().LSBLK(true)
 
