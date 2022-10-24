@@ -27,12 +27,12 @@ func sendDiskBySocket() {
 
 		if systemDisk == nil {
 			// go 5 level deep to look for system block device by mount point being "/"
-			systemBlk := service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
+			systemDisk = service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
 
-			if systemBlk != nil {
-				s, _ := strconv.ParseUint(systemBlk.FSSize, 10, 64)
-				a, _ := strconv.ParseUint(systemBlk.FSAvail, 10, 64)
-				u, _ := strconv.ParseUint(systemBlk.FSUsed, 10, 64)
+			if systemDisk != nil {
+				s, _ := strconv.ParseUint(systemDisk.FSSize, 10, 64)
+				a, _ := strconv.ParseUint(systemDisk.FSAvail, 10, 64)
+				u, _ := strconv.ParseUint(systemDisk.FSUsed, 10, 64)
 				status.Size += s
 				status.Avail += a
 				status.Used += u
