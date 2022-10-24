@@ -15,37 +15,19 @@ import (
 	"go.uber.org/zap"
 )
 
-func walkBlk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.LSBLKModel) bool) *model.LSBLKModel {
-	if shouldStopAt(rootBlk) {
-		return &rootBlk
-	}
-
-	if depth == 0 {
-		return nil
-	}
-
-	for _, blkChild := range rootBlk.Children {
-		if blk := walkBlk(blkChild, depth-1, shouldStopAt); blk != nil {
-			return blk
-		}
-	}
-
-	return nil
-}
-
 func sendDiskBySocket() {
 	blkList := service.MyService.Disk().LSBLK(true)
 
 	status := model.DiskStatus{}
 	healthy := true
 
-	foundSystem := 0 // todo - need a better way to detect system disk, instead of relying mountpoint being /
+	var systemDisk *model.LSBLKModel
 
 	for _, currentDisk := range blkList {
 
-		if foundSystem == 0 {
-
-			systemBlk := walkBlk(currentDisk, 2, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
+		if systemDisk == nil {
+			// go 5 level deep to look for system block device by mount point being "/"
+			systemBlk := service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
 
 			if systemBlk != nil {
 				s, _ := strconv.ParseUint(systemBlk.FSSize, 10, 64)
@@ -54,20 +36,9 @@ func sendDiskBySocket() {
 				status.Size += s
 				status.Avail += a
 				status.Used += u
-				foundSystem = 1
-			}
-		}
 
-		// foundSystem is a flow control variable that goes thru 3 stages:
-		//
-		// 0           - system storage not found yet
-		///1           - system storage found
-		// 2 or larger - system has been found already
-		if foundSystem == 1 {
-			foundSystem++
-			// in next iteration, this tells logic above there is no need to look for system storage again
-			// it also tells next iteration to continue counting other storages
-			continue
+				continue
+			}
 		}
 
 		if !service.IsDiskSupported(currentDisk) {

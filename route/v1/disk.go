@@ -38,7 +38,6 @@ type StorageMessage struct {
 // @Router /disk/list [get]
 func GetDiskList(c *gin.Context) {
 	blkList := service.MyService.Disk().LSBLK(false)
-	foundSystem := false // todo - need a better way to detect system disk, instead of relying mountpoint being /
 
 	dbList, err := service.MyService.Disk().GetSerialAllFromDB()
 	if err != nil {
@@ -54,6 +53,8 @@ func GetDiskList(c *gin.Context) {
 
 	disks := []model1.Drive{}
 	avail := []model1.Drive{}
+
+	var systemDisk *model1.LSBLKModel
 
 	for _, currentDisk := range blkList {
 		disk := model1.Drive{
@@ -71,41 +72,20 @@ func GetDiskList(c *gin.Context) {
 			disk.DiskType = "SSD"
 		}
 
-		if !foundSystem {
-			if currentDisk.MountPoint == "/" {
+		if systemDisk == nil {
+			// go 5 level deep to look for system block device by mount point being "/"
+			systemDisk := service.WalkDisk(currentDisk, 5, func(blk model1.LSBLKModel) bool { return blk.MountPoint == "/" })
+
+			if systemDisk != nil {
 				disk.Model = "System"
-				if strings.Contains(currentDisk.SubSystems, "mmc") {
+				if strings.Contains(systemDisk.SubSystems, "mmc") {
 					disk.DiskType = "MMC"
-				} else if strings.Contains(currentDisk.SubSystems, "usb") {
+				} else if strings.Contains(systemDisk.SubSystems, "usb") {
 					disk.DiskType = "USB"
 				}
 				disk.Health = "true"
 
 				disks = append(disks, disk)
-				foundSystem = true
-				continue
-			}
-
-			for _, blkChild := range currentDisk.Children {
-				if blkChild.MountPoint != "/" {
-					continue
-				}
-
-				disk.Model = "System"
-				if strings.Contains(blkChild.SubSystems, "mmc") {
-					disk.DiskType = "MMC"
-				} else if strings.Contains(blkChild.SubSystems, "usb") {
-					disk.DiskType = "USB"
-				}
-				disk.Health = "true"
-
-				disks = append(disks, disk)
-				foundSystem = true
-
-				break
-			}
-
-			if foundSystem {
 				continue
 			}
 		}

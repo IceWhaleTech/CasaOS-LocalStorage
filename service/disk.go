@@ -565,3 +565,21 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
 		(d.Tran == "ata" && d.Type == "disk")
 }
+
+func WalkDisk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.LSBLKModel) bool) *model.LSBLKModel {
+	if shouldStopAt(rootBlk) {
+		return &rootBlk
+	}
+
+	if depth == 0 {
+		return nil
+	}
+
+	for _, blkChild := range rootBlk.Children {
+		if blk := WalkDisk(blkChild, depth-1, shouldStopAt); blk != nil {
+			return blk
+		}
+	}
+
+	return nil
+}
