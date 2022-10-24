@@ -15,17 +15,22 @@ import (
 	"go.uber.org/zap"
 )
 
-func walkBlk(rootBlk model.LSBLKModel, shouldStop func(blk model.LSBLKModel) bool) model.LSBLKModel {
-	// TODO - implement this
-	if shouldStop(rootBlk) {
-		return rootBlk
+func walkBlk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.LSBLKModel) bool) *model.LSBLKModel {
+	if shouldStopAt(rootBlk) {
+		return &rootBlk
 	}
 
-	for _, blk := range rootBlk.Children {
-		walkBlk(blk, shouldStop)
+	if depth == 0 {
+		return nil
 	}
 
-	return rootBlk
+	for _, blkChild := range rootBlk.Children {
+		if blk := walkBlk(blkChild, depth-1, shouldStopAt); blk != nil {
+			return blk
+		}
+	}
+
+	return nil
 }
 
 func sendDiskBySocket() {
@@ -33,37 +38,23 @@ func sendDiskBySocket() {
 
 	status := model.DiskStatus{}
 	healthy := true
+
 	foundSystem := 0 // todo - need a better way to detect system disk, instead of relying mountpoint being /
 
 	for _, currentDisk := range blkList {
 
 		if foundSystem == 0 {
-			for _, blkChild := range currentDisk.Children {
 
-				for _, v := range blkChild.Children {
-					if v.MountPoint == "/" {
-						s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-						a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-						u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-						status.Size += s
-						status.Avail += a
-						status.Used += u
-						foundSystem = 1
-						break
-					}
-				}
+			systemBlk := walkBlk(currentDisk, 2, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
 
-				if blkChild.MountPoint == "/" {
-					s, _ := strconv.ParseUint(blkChild.FSSize, 10, 64)
-					a, _ := strconv.ParseUint(blkChild.FSAvail, 10, 64)
-					u, _ := strconv.ParseUint(blkChild.FSUsed, 10, 64)
-					status.Size += s
-					status.Avail += a
-					status.Used += u
-					foundSystem = 1
-					break
-				}
-
+			if systemBlk != nil {
+				s, _ := strconv.ParseUint(systemBlk.FSSize, 10, 64)
+				a, _ := strconv.ParseUint(systemBlk.FSAvail, 10, 64)
+				u, _ := strconv.ParseUint(systemBlk.FSUsed, 10, 64)
+				status.Size += s
+				status.Avail += a
+				status.Used += u
+				foundSystem = 1
 			}
 		}
 
