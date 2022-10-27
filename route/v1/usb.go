@@ -28,7 +28,11 @@ const messagePathSysUSB = "sys_usb"
 // @Router /sys/usb/off [put]
 func PutSystemUSBAutoMount(c *gin.Context) {
 	js := make(map[string]string)
-	c.ShouldBind(&js)
+	if err := c.ShouldBind(&js); err != nil {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: err.Error()})
+		return
+	}
+
 	status := js["state"]
 	if status == "on" {
 		service.MyService.USB().UpdateUSBAutoMount("True")
@@ -130,9 +134,14 @@ func DeleteDiskUSB(c *gin.Context) {
 	}
 	mountPoint := js["mount_point"]
 	if file.CheckNotExist(mountPoint) {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
 		return
 	}
-	service.MyService.Disk().UmountUSB(mountPoint)
+
+	if err := service.MyService.Disk().UmountUSB(mountPoint); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
+
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: mountPoint})
 }
