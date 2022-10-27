@@ -235,7 +235,6 @@ func (d *diskService) DeletePartition(path string) error {
 // get disk details
 func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 	key := "system_lsblk"
-	var n []model.LSBLKModel
 
 	if result, ok := Cache.Get(key); ok && isUseCache {
 
@@ -250,63 +249,68 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 		logger.Error("Failed to exec shell - lsblk exec error")
 		return nil
 	}
-	var m []model.LSBLKModel
-	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &m)
+	var blkList []model.LSBLKModel
+	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &blkList)
 	if err != nil {
 		logger.Error("Failed to unmarshal json", zap.Error(err))
 	}
 
-	var c []model.LSBLKModel
-
 	var fsused uint64
 
 	health := true
-	for _, i := range m {
-		if i.Type != "loop" && !i.RO {
-			fsused = 0
-			for _, child := range i.Children {
-				if child.RM {
-					output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
-					if err != nil {
-						logger.Error("Failed to exec shell", zap.Error(err))
-						return nil
-					}
 
-					child.Health = strings.TrimSpace(output)
-					if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
-						health = false
-					}
-					f, _ := strconv.ParseUint(child.FSUsed, 10, 64)
-					fsused += f
-				} else {
+	result := make([]model.LSBLKModel, 0)
+
+	for _, blk := range blkList {
+
+		if blk.Type == "loop" || blk.RO {
+			continue
+		}
+
+		fsused = 0
+
+		var blkChildren []model.LSBLKModel
+		for _, child := range blk.Children {
+			if child.RM {
+				output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
+				if err != nil {
+					logger.Error("Failed to exec shell", zap.Error(err))
+					return nil
+				}
+
+				child.Health = strings.TrimSpace(output)
+				if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
 					health = false
 				}
-				c = append(c, child)
+				f, _ := strconv.ParseUint(child.FSUsed, 10, 64)
+				fsused += f
+			} else {
+				health = false
 			}
-
-			if health {
-				i.Health = "OK"
-			}
-
-			i.FSUsed = strconv.FormatUint(fsused, 10)
-			i.Children = c
-			if fsused > 0 {
-				i.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(i.Size)), 64)
-				if err != nil {
-					logger.Error("Failed to parse float", zap.Error(err))
-				}
-			}
-			n = append(n, i)
-			health = true
-			c = []model.LSBLKModel{}
+			blkChildren = append(blkChildren, child)
 		}
-	}
-	if len(n) > 0 {
-		if err := Cache.Add(key, n, time.Second*100); err != nil {
-			logger.Error("Failed to add cache", zap.Error(err), zap.String("key", key))
+
+		if health {
+			blk.Health = "OK"
 		}
+
+		blk.FSUsed = strconv.FormatUint(fsused, 10)
+		blk.Children = blkChildren
+		if fsused > 0 {
+			blk.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(blk.Size)), 64)
+			if err != nil {
+				logger.Error("Failed to parse float", zap.Error(err))
+			}
+		}
+		result = append(result, blk)
+		health = true
 	}
-	return n
+
+	if len(result) > 0 {
+		Cache.Set(key, result, time.Second*100)
+	}
+
+	return result
 }
 
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
