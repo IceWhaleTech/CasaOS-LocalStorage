@@ -40,24 +40,12 @@ UMountPointAndRemoveDir() {
   fi
 }
 
-#删除分区
-#param 路径   /dev/sdb
-#param 删除分区的区号
-DelPartition() {
-  fdisk $1 <<EOF
-  d
-  $2
-  wq
-EOF
-}
-
 #添加分区只有一个分区
 #param 路径   /dev/sdb
 #param 要挂载的目录
 AddPartition() {
   set -e
 
-  DelPartition $1
   parted -s $1 mklabel gpt
 
   parted -s $1 mkpart primary ext4 0 100%
@@ -81,18 +69,25 @@ GetDiskType() {
 # $1=sda1
 # $2=volume{1}
 do_mount() {
+  set -e
+
   DEVBASE=$1
   DEVICE="${DEVBASE}"
   # See if this drive is already mounted, and if so where
   MOUNT_POINT=$(lsblk -o mountpoint -nr "${DEVICE}" | head -n 1)
 
   if [ -n "${MOUNT_POINT}" ]; then
-    echo "Warning: ${DEVICE} is already mounted at ${MOUNT_POINT}"
+    echo "${DEVICE} is already mounted at ${MOUNT_POINT}"
     exit 1
   fi
 
   # Get info for this drive: $ID_FS_LABEL and $ID_FS_TYPE
-  eval $(blkid -o udev ${DEVICE} | grep -i -e "ID_FS_LABEL" -e "ID_FS_TYPE")
+  DRIVE_INFO=$(blkid -o udev "${DEVICE}" | grep -i -e "ID_FS_LABEL" -e "ID_FS_TYPE") || {
+    echo "${DEVICE} does not have a filesystem or it might be corrupted. Please consider format it."
+    exit 1
+  }
+
+  eval "${DRIVE_INFO}"
 
   LABEL=$2
   if grep -q " ${LABEL} " /etc/mtab; then
@@ -129,8 +124,9 @@ do_mount() {
     mount -t iso9660 "${DEVICE}" "${MOUNT_POINT}"
     ;;
   *)
+    echo "Unsupported filesystem type: ${ID_FS_TYPE}"
     /bin/rmdir "${MOUNT_POINT}"
-    exit 0
+    exit 1
     ;;
   esac
 }

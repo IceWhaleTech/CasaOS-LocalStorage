@@ -77,10 +77,6 @@ func GetStorageList(c *gin.Context) {
 						}
 					}
 				}
-
-				if foundSystem {
-					continue
-				}
 			}
 
 			stor := model1.Storage{
@@ -90,7 +86,7 @@ func GetStorageList(c *gin.Context) {
 				Path:        blkChild.Path,
 				Type:        blkChild.FsType,
 				DriveName:   blkChild.Name,
-				PersistedIn: service.MyService.Disk().GetPersistentType(blkChild.Path),
+				PersistedIn: service.MyService.Disk().GetPersistentTypeByUUID(blkChild.UUID),
 			}
 
 			if len(blkChild.Label) == 0 {
@@ -151,60 +147,80 @@ func PostAddStorage(c *gin.Context) {
 
 	diskMap[path] = "busying"
 
+	defer service.MyService.Disk().RemoveLSBLKCache()
 	defer delete(diskMap, path)
 
-	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
+		logger.Info("umounting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+			logger.Error("error when trying to umount storage", zap.Error(err), zap.String("path", path))
+			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
+			return
+		}
 
-		output, err := service.MyService.Disk().AddPartition(path)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
+		logger.Info("deleting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().DeletePartition(path); err != nil {
+			logger.Error("error when trying to delete partition", zap.Error(err), zap.String("path", path))
+			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			return
+		}
+
+		logger.Info("formatting storage...", zap.String("path", path))
+		if err := service.MyService.Disk().AddPartition(path); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 			return
 		}
 	}
 
-	currentDisk = service.MyService.Disk().GetDiskInfo(path)
-
+	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
+
+		// mount disk
 		if output, err := service.MyService.Disk().MountDisk(blkChild.Path, mountPoint); err != nil {
 			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
 			return
 		}
 
+		var b model1.LSBLKModel
+		retry := 3 // ugly workaround for lsblk not returning UUID after creating partition on time - need a better solution
+		for b.UUID == "" && retry > 0 {
+			time.Sleep(1 * time.Second)
+			b = service.MyService.Disk().GetDiskInfo(blkChild.Path)
+			retry--
+		}
+
 		m := model2.Volume{
-			MountPoint: mountPoint,
-			Path:       blkChild.Path,
-			UUID:       blkChild.UUID,
-			State:      0,
+			MountPoint: b.MountPoint,
+			UUID:       b.UUID,
 			CreatedAt:  time.Now().Unix(),
 		}
 
-		service.MyService.Disk().SaveMountPoint(m)
-		// mount dir
+		if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			return
+		}
+
+		// send notify to client
+		go func(blkChild model1.LSBLKModel) {
+			message := map[string]interface{}{
+				"data": StorageMessage{
+					Action: "ADDED",
+					Path:   blkChild.Path,
+					Volume: "/mnt/",
+					Size:   blkChild.Size,
+					Type:   blkChild.Tran,
+				},
+			}
+
+			if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+				logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+			}
+		}(blkChild)
 	}
 
-	service.MyService.Disk().RemoveLSBLKCache()
-
-	// send notify to client
-	go func() {
-		message := map[string]interface{}{
-			"data": StorageMessage{
-				Action: "ADDED",
-				Path:   currentDisk.Children[0].Path,
-				Volume: "/mnt/",
-				Size:   currentDisk.Children[0].Size,
-				Type:   currentDisk.Children[0].Tran,
-			},
-		}
-
-		if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
-			logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
-		}
-	}()
-
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
 // @Param  pwd formData string true "user password"
@@ -225,26 +241,29 @@ func PutFormatStorage(c *gin.Context) {
 	}
 
 	path := js["path"]
-	t := "ext4"
 	mountPoint := js["volume"]
 
-	if len(path) == 0 || len(t) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
+	if len(path) == 0 {
+		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 		return
 	}
 
 	if _, ok := diskMap[path]; ok {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
-		return
-	}
-	diskMap[path] = "busying"
-	if output, err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 		return
 	}
 
-	_, err := service.MyService.Disk().FormatDisk(path, t)
-	if err != nil {
+	diskMap[path] = "busying"
+
+	defer service.MyService.Disk().RemoveLSBLKCache()
+	defer delete(diskMap, path)
+
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
+		return
+	}
+
+	if err := service.MyService.Disk().FormatDisk(path); err != nil {
 		delete(diskMap, path)
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 	}
@@ -262,16 +281,15 @@ func PutFormatStorage(c *gin.Context) {
 
 	m := model2.Volume{
 		MountPoint: mountPoint,
-		Path:       currentDisk.Path,
 		UUID:       currentDisk.UUID,
-		State:      0,
 		CreatedAt:  time.Now().Unix(),
 	}
 
-	service.MyService.Disk().SaveMountPoint(m)
+	if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
 
-	service.MyService.Disk().RemoveLSBLKCache()
-	delete(diskMap, path)
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
@@ -301,14 +319,18 @@ func DeleteStorage(c *gin.Context) {
 		return
 	}
 
-	if output, err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		return
 	}
 
 	// delete data
-	service.MyService.Disk().DeleteMountPoint(path, mountPoint)
-	service.MyService.Disk().RemoveLSBLKCache()
+	defer func() {
+		if err := service.MyService.Disk().DeleteMountPointFromDB(path, mountPoint); err != nil {
+			logger.Error("error when deleting mount point from database", zap.Error(err))
+		}
+	}()
+	defer service.MyService.Disk().RemoveLSBLKCache()
 
 	// send notify to client
 	go func() {

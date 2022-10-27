@@ -73,11 +73,38 @@ func init() {
 	service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		ensureDefaultMergePoint()
+		if !isMergerFSInstalled() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+	}
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		if !ensureDefaultMergePoint() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+	}
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
 		service.MyService.LocalStorage().CheckMergeMount()
 	}
 
+	checkToken2_11()
+
 	ensureDefaultDirectories()
+}
+
+func checkToken2_11() {
+	deviceTree, err := service.MyService.USB().GetDeviceTree()
+	if err != nil {
+		panic(err)
+	}
+
+	if service.MyService.USB().GetSysInfo().KernelArch == "aarch64" && strings.ToLower(config.ServerInfo.USBAutoMount) != "true" && strings.Contains(deviceTree, "Raspberry Pi") {
+		service.MyService.USB().UpdateUSBAutoMount("False")
+		service.MyService.USB().ExecUSBAutoMountShell("False")
+	}
 }
 
 func ensureDefaultDirectories() {
@@ -102,13 +129,29 @@ func ensureDefaultDirectories() {
 	}
 }
 
-func ensureDefaultMergePoint() {
+func isMergerFSInstalled() bool {
+	paths := []string{
+		"/sbin/mount.mergerfs", "/usr/sbin/mount.mergerfs", "/usr/local/sbin/mount.mergerfs",
+		"/bin/mount.mergerfs", "/usr/bin/mount.mergerfs", "/usr/local/bin/mount.mergerfs",
+	}
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			logger.Info("mergerfs is installed", zap.String("path", path))
+			return true
+		}
+	}
+
+	logger.Error("mergerfs is not installed at any path", zap.String("paths", strings.Join(paths, ", ")))
+	return false
+}
+
+func ensureDefaultMergePoint() bool {
 	mountPoint := "/DATA"
 	sourceBasePath := constants.DefaultFilePath
 
 	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
 
-	existingMerges, err := service.MyService.LocalStorage().GetMergeAll(&mountPoint)
+	existingMerges, err := service.MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
 	if err != nil {
 		panic(err)
 	}
@@ -118,23 +161,31 @@ func ensureDefaultMergePoint() {
 		if len(existingMerges) > 1 {
 			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
 		}
-		return
+		return true
 	}
 
-	if _, err := service.MyService.LocalStorage().SetMerge(&model2.Merge{
+	merge := &model2.Merge{
 		FSType:         fs.MergerFSFullName,
 		MountPoint:     mountPoint,
 		SourceBasePath: &sourceBasePath,
-	}); err != nil {
+	}
+
+	if err := service.MyService.LocalStorage().CreateMerge(merge); err != nil {
 		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
 			logger.Info(err.Error(), zap.String("mount point", mountPoint))
 		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			logger.Error("Mount point "+mountPoint+" is not empty - disabling MergerFS", zap.String("mount point", mountPoint))
-			config.ServerInfo.EnableMergerFS = "False"
+			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+			return false
 		} else {
 			panic(err)
 		}
 	}
+
+	if err := service.MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
+		panic(err)
+	}
+
+	return true
 }
 
 func main() {
@@ -146,6 +197,10 @@ func main() {
 	if err := crontab.AddFunc("*/5 * * * * *", func() { sendStorageStats() }); err != nil {
 		logger.Error("crontab add func error", zap.Error(err))
 	}
+
+	crontab.Start()
+
+	defer crontab.Stop()
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
 	if err != nil {

@@ -38,9 +38,14 @@ type StorageMessage struct {
 // @Router /disk/list [get]
 func GetDiskList(c *gin.Context) {
 	blkList := service.MyService.Disk().LSBLK(false)
-	foundSystem := false
 
-	dbList := service.MyService.Disk().GetSerialAll()
+	dbList, err := service.MyService.Disk().GetSerialAllFromDB()
+	if err != nil {
+		logger.Error("error when getting all volumes from database", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
+
 	part := make(map[string]int64, len(dbList))
 	for _, v := range dbList {
 		part[v.MountPoint] = v.CreatedAt
@@ -48,6 +53,8 @@ func GetDiskList(c *gin.Context) {
 
 	disks := []model1.Drive{}
 	avail := []model1.Drive{}
+
+	var systemDisk *model1.LSBLKModel
 
 	for _, currentDisk := range blkList {
 		disk := model1.Drive{
@@ -65,46 +72,25 @@ func GetDiskList(c *gin.Context) {
 			disk.DiskType = "SSD"
 		}
 
-		if !foundSystem {
-			if currentDisk.MountPoint == "/" {
+		if systemDisk == nil {
+			// go 5 level deep to look for system block device by mount point being "/"
+			systemDisk := service.WalkDisk(currentDisk, 5, func(blk model1.LSBLKModel) bool { return blk.MountPoint == "/" })
+
+			if systemDisk != nil {
 				disk.Model = "System"
-				if strings.Contains(currentDisk.SubSystems, "mmc") {
+				if strings.Contains(systemDisk.SubSystems, "mmc") {
 					disk.DiskType = "MMC"
-				} else if strings.Contains(currentDisk.SubSystems, "usb") {
+				} else if strings.Contains(systemDisk.SubSystems, "usb") {
 					disk.DiskType = "USB"
 				}
 				disk.Health = "true"
 
 				disks = append(disks, disk)
-				foundSystem = true
-				continue
-			}
-
-			for _, blkChild := range currentDisk.Children {
-				if blkChild.MountPoint != "/" {
-					continue
-				}
-
-				disk.Model = "System"
-				if strings.Contains(blkChild.SubSystems, "mmc") {
-					disk.DiskType = "MMC"
-				} else if strings.Contains(blkChild.SubSystems, "usb") {
-					disk.DiskType = "USB"
-				}
-				disk.Health = "true"
-
-				disks = append(disks, disk)
-				foundSystem = true
-
-				break
-			}
-
-			if foundSystem {
 				continue
 			}
 		}
 
-		if !isDiskSupported(currentDisk) {
+		if !service.IsDiskSupported(currentDisk) {
 			continue
 		}
 
@@ -174,13 +160,15 @@ func DeleteDisksUmount(c *gin.Context) {
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	for _, v := range diskInfo.Children {
-		if output, err := service.MyService.Disk().UmountPointAndRemoveDir(v.Path); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: output})
+		if err := service.MyService.Disk().UmountPointAndRemoveDir(v.Path); err != nil {
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 			return
 		}
 
 		// delete data
-		service.MyService.Disk().DeleteMountPoint(v.Path, v.MountPoint)
+		if err := service.MyService.Disk().DeleteMountPointFromDB(v.Path, v.MountPoint); err != nil {
+			logger.Error("error when deleting mount point from database", zap.Error(err), zap.String("path", v.Path), zap.String("mount point", v.MountPoint))
+		}
 
 		if err := service.MyService.Shares().DeleteShare(v.MountPoint); err != nil {
 			logger.Error("error when deleting share by mount point", zap.Error(err), zap.String("mount point", v.MountPoint))
@@ -207,14 +195,4 @@ func DeleteDisksUmount(c *gin.Context) {
 	}()
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
-}
-
-func isDiskSupported(d model1.LSBLKModel) bool {
-	return d.Tran == "sata" ||
-		d.Tran == "nvme" ||
-		d.Tran == "spi" ||
-		d.Tran == "sas" ||
-		strings.Contains(d.SubSystems, "virtio") ||
-		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
-		(d.Tran == "ata" && d.Type == "disk")
 }

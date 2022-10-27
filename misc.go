@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,67 +16,49 @@ import (
 )
 
 func sendDiskBySocket() {
-	list := service.MyService.Disk().LSBLK(true)
+	blkList := service.MyService.Disk().LSBLK(true)
 
 	status := model.DiskStatus{}
 	healthy := true
-	findSystem := 0
 
-	for i := 0; i < len(list); i++ {
-		if len(list[i].Children) > 0 && findSystem == 0 {
-			for j := 0; j < len(list[i].Children); j++ {
-				if len(list[i].Children[j].Children) > 0 {
-					for _, v := range list[i].Children[j].Children {
-						if v.MountPoint == "/" {
-							s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-							a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-							u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-							status.Size += s
-							status.Avail += a
-							status.Used += u
-							findSystem = 1
-							break
-						}
-					}
-				} else {
-					if list[i].Children[j].MountPoint == "/" {
-						s, _ := strconv.ParseUint(list[i].Children[j].FSSize, 10, 64)
-						a, _ := strconv.ParseUint(list[i].Children[j].FSAvail, 10, 64)
-						u, _ := strconv.ParseUint(list[i].Children[j].FSUsed, 10, 64)
-						status.Size += s
-						status.Avail += a
-						status.Used += u
-						findSystem = 1
-						break
-					}
-				}
+	var systemDisk *model.LSBLKModel
+
+	for _, currentDisk := range blkList {
+
+		if systemDisk == nil {
+			// go 5 level deep to look for system block device by mount point being "/"
+			systemDisk = service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
+
+			if systemDisk != nil {
+				s, _ := strconv.ParseUint(systemDisk.FSSize, 10, 64)
+				a, _ := strconv.ParseUint(systemDisk.FSAvail, 10, 64)
+				u, _ := strconv.ParseUint(systemDisk.FSUsed, 10, 64)
+				status.Size += s
+				status.Avail += a
+				status.Used += u
+
+				continue
 			}
 		}
-		if findSystem == 1 {
-			findSystem++
+
+		if !service.IsDiskSupported(currentDisk) {
 			continue
 		}
-		if list[i].Tran == "sata" || list[i].Tran == "nvme" || list[i].Tran == "spi" || list[i].Tran == "sas" || strings.Contains(list[i].SubSystems, "virtio") || (list[i].Tran == "ata" && list[i].Type == "disk") {
-			temp := service.MyService.Disk().SmartCTL(list[i].Path)
-			if reflect.DeepEqual(temp, model.SmartctlA{}) {
-				healthy = true
-			} else {
-				healthy = temp.SmartStatus.Passed
-			}
 
-			// list[i].Temperature = temp.Temperature.Current
+		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
+		if reflect.DeepEqual(temp, model.SmartctlA{}) {
+			healthy = true
+		} else {
+			healthy = temp.SmartStatus.Passed
+		}
 
-			if len(list[i].Children) > 0 {
-				for _, v := range list[i].Children {
-					s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-					a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-					u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
-					status.Size += s
-					status.Avail += a
-					status.Used += u
-				}
-			}
-
+		for _, v := range currentDisk.Children {
+			s, _ := strconv.ParseUint(v.FSSize, 10, 64)
+			a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
+			u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
+			status.Size += s
+			status.Avail += a
+			status.Used += u
 		}
 	}
 
@@ -125,8 +106,8 @@ func monitorUSB() {
 	for {
 		select {
 		case uevent := <-queue:
-			if uevent.Env["DEVTYPE"] == "disk" {
-				time.Sleep(time.Microsecond * 500)
+			if uevent.Env["DEVTYPE"] == "partition" && uevent.Env["ID_BUS"] == "usb" {
+				time.Sleep(1 * time.Second)
 				sendUSBBySocket()
 				continue
 			}
@@ -137,7 +118,6 @@ func monitorUSB() {
 }
 
 func sendStorageStats() {
-	logger.Info("sending stats to CasaOS core...")
 	sendDiskBySocket()
 	sendUSBBySocket()
 }

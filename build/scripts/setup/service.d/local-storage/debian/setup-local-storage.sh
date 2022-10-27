@@ -15,11 +15,8 @@ if [ ! -f "${CONF_FILE}" ]; then \
     cp -v "${CONF_FILE_SAMPLE}" "${CONF_FILE}"; \
 fi
 
-# enable and start service
 systemctl daemon-reload
 
+# enable service (without starting)
 echo "Enabling service..."
 systemctl enable --force --no-ask-password "${APP_NAME}.service"
-
-# echo "Starting service..."
-# systemctl start --force --no-ask-password "${APP_NAME}.service"
