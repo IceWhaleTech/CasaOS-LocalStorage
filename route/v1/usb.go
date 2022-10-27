@@ -107,13 +107,13 @@ func GetDisksUSBList(c *gin.Context) {
 				if len(child.MountPoint) > 0 {
 					tempChildren := model1.USBChildren{}
 					tempChildren.MountPoint = child.MountPoint
-					tempChildren.Size, _ = strconv.ParseUint(child.FSSize, 10, 64)
-					tempChildren.Avail, _ = strconv.ParseUint(child.FSAvail, 10, 64)
+					tempChildren.Size, _ = strconv.ParseUint(child.FSSize.String(), 10, 64)
+					tempChildren.Avail, _ = strconv.ParseUint(child.FSAvail.String(), 10, 64)
 					tempChildren.Name = child.Label
 					if len(tempChildren.Name) == 0 {
 						tempChildren.Name = filepath.Base(child.MountPoint)
 					}
-					avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
+					avail, _ := strconv.ParseUint(child.FSAvail.String(), 10, 64)
 					children = append(children, tempChildren)
 					temp.Avail += avail
 				}

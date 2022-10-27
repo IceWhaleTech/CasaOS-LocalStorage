@@ -25,3 +25,17 @@ func TestWalkDisk(t *testing.T) {
 
 	assert.Equal(t, sysBlk.Name, "ubuntu--vg-ubuntu--lv")
 }
+
+func TestParseBlockDevices(t *testing.T) {
+	jsonText := `{"blockdevices":[{"alignment":3072,"disc-aln":3072,"dax":false,"disc-gran":4096,"disc-max":2147450880,"disc-zero":false,"fsavail":965102444544,"fsroots":["/"],"fssize":983351103488,"fstype":"ext4","fsused":8229834752,"fsuse%":"1%","fsver":"1.0","group":"disk","hctl":null,"hotplug":false,"kname":"sda1","label":null,"log-sec":512,"maj:min":"8:1","min-io":4096,"mode":"brw-rw----","model":null,"name":"sda1","opt-io":0,"owner":"root","partflags":null,"partlabel":"primary","parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4","parttypename":"Linux filesystem","partuuid":"7c216c4e-19aa-4090-9cf5-f581e061316f","path":"/dev/sda1","phy-sec":4096,"pkname":"sda","pttype":"gpt","ptuuid":"d6e75e46-4baf-4581-8123-0bb46d516a3d","ra":128,"rand":false,"rev":null,"rm":false,"ro":false,"rota":false,"rq-size":64,"sched":"mq-deadline","serial":null,"size":1000204851712,"start":34,"state":null,"subsystems":"block:scsi:pci","mountpoint":"/DATA/Storage_1","mountpoints":["/DATA/Storage_1"],"tran":null,"type":"part","uuid":"dec3bf0a-bf21-4201-92d8-6ecdd4fa1ea8","vendor":null,"wsame":0,"wwn":"0x500a0751e602c4cc","zoned":"none","zone-sz":0,"zone-wgran":0,"zone-app":0,"zone-nr":0,"zone-omax":0,"zone-amax":0}]}`
+
+	blkList, err := ParseBlockDevices([]byte(jsonText))
+
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(blkList), 1)
+
+	assert.Equal(t, blkList[0].FSSize.String(), "983351103488")
+	assert.Equal(t, blkList[0].FSAvail.String(), "965102444544")
+	assert.Equal(t, blkList[0].FSUsed.String(), "8229834752")
+}
