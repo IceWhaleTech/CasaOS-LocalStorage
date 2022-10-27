@@ -24,12 +24,12 @@ func GetDevicePath(uuid string) (string, error) {
 	return string(bytes.TrimSpace(out)), nil
 }
 
-// rootDevice - root device, e.g. /dev/sda
-func GetPartitions(rootDevice string) ([]Partition, error) {
+// path - device path, e.g. /dev/sda
+func GetPartitions(path string) ([]Partition, error) {
 	var partitions []Partition
 
 	// lsblk
-	out, err := executeCommand("lsblk", "--pairs", "--bytes", "--output-all", rootDevice)
+	out, err := executeCommand("lsblk", "--pairs", "--bytes", "--output-all", path)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func GetPartitions(rootDevice string) ([]Partition, error) {
 	}
 
 	// partx
-	out, err = executeCommand("partx", "--pairs", "--bytes", "--output-all", rootDevice)
+	out, err = executeCommand("partx", "--pairs", "--bytes", "--output-all", path)
 	if err != nil {
 		return nil, err
 	}

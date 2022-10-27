@@ -86,7 +86,9 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	buf := command.ExecSmartCTLByPath(path)
 	if buf == nil {
 		logger.Error("failed to exec shell - smartctl exec error")
-		Cache.Add(key, m, time.Minute*10)
+		if err := Cache.Add(key, m, time.Minute*10); err != nil {
+			logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+		}
 		return m
 	}
 
@@ -95,7 +97,9 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 		logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
 	}
 	if !reflect.DeepEqual(m, model.SmartctlA{}) {
-		Cache.Add(key, m, time.Hour*24)
+		if err := Cache.Add(key, m, time.Hour*24); err != nil {
+			logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+		}
 	}
 	return m
 }
@@ -295,11 +299,12 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			n = append(n, i)
 			health = true
 			c = []model.LSBLKModel{}
-			fsused = 0
 		}
 	}
 	if len(n) > 0 {
-		Cache.Add(key, n, time.Second*100)
+		if err := Cache.Add(key, n, time.Second*100); err != nil {
+			logger.Error("Failed to add cache", zap.Error(err), zap.String("key", key))
+		}
 	}
 	return n
 }
@@ -507,8 +512,13 @@ func (d *diskService) CheckSerialDiskMount() {
 			// mount point check
 			mountPoint := m
 			if !file.CheckNotExist(m) {
-				for i := 0; file.CheckNotExist(mountPoint); i++ {
-					mountPoint = m + strconv.Itoa(i+1)
+				i := 1
+				for {
+					mountPoint = m + "-" + strconv.Itoa(i)
+					if file.CheckNotExist(mountPoint) {
+						break
+					}
+					i++
 				}
 				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
 			}
@@ -517,12 +527,23 @@ func (d *diskService) CheckSerialDiskMount() {
 				logger.Error(output, zap.Error(err), zap.String("path", blkChild.Path), zap.String("volume", mountPoint))
 			}
 
+			// obtain the actual mount path (just in case)
+			partitions, err := partition.GetPartitions(blkChild.Path)
+			if err != nil {
+				logger.Error("error when getting partitions by path", zap.Error(err), zap.String("path", blkChild.Path))
+				continue
+			}
+
+			mountPoint = partitions[0].LSBLKProperties["MOUNTPOINT"]
+
 			if mountPoint != m {
-				ms := model2.Volume{
-					UUID:       currentDisk.UUID,
+				v := model2.Volume{
+					UUID:       blkChild.UUID,
 					MountPoint: mountPoint,
 				}
-				d.UpdateMountPointInDB(ms)
+				if err := d.UpdateMountPointInDB(v); err != nil {
+					logger.Error("error when updating mount point in db", zap.Error(err), zap.Any("volume", v))
+				}
 			}
 		}
 	}
