@@ -3,9 +3,11 @@ package service
 import (
 	"os"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	command2 "github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/shirou/gopsutil/host"
+	"go.uber.org/zap"
 )
 
 type USBService interface {
@@ -21,14 +23,20 @@ type usbService struct{}
 func (s *usbService) UpdateUSBAutoMount(state string) {
 	config.ServerInfo.USBAutoMount = state
 	config.Cfg.Section("server").Key("USBAutoMount").SetValue(state)
-	config.Cfg.SaveTo(config.ConfigFilePath)
+	if err := config.Cfg.SaveTo(config.ConfigFilePath); err != nil {
+		logger.Error("error when saving USB automount configuration", zap.Error(err), zap.String("path", config.ConfigFilePath))
+	}
 }
 
 func (s *usbService) ExecUSBAutoMountShell(state string) {
 	if state == "False" {
-		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Stop_Auto")
+		if _, err := command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Stop_Auto"); err != nil {
+			logger.Error("error when executing shell script to stop USB automount", zap.Error(err))
+		}
 	} else {
-		command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Start_Auto")
+		if _, err := command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;USB_Start_Auto"); err != nil {
+			logger.Error("error when executing shell script to start USB automount", zap.Error(err))
+		}
 	}
 }
 
