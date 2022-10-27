@@ -78,6 +78,7 @@ type USBChildren struct {
 }
 
 type Storage struct {
+	UUID        string `json:"uuid"`
 	MountPoint  string `json:"mount_point"`
 	Size        string `json:"size"`
 	Avail       string `json:"avail"` // 可用空间
