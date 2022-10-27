@@ -249,10 +249,10 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 		logger.Error("Failed to exec shell - lsblk exec error")
 		return nil
 	}
-	var blkList []model.LSBLKModel
-	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &blkList)
+
+	blkList, err := ParseBlockDevices(str)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Error(err))
+		logger.Error("Failed to parse block devices from output of lsblk", zap.Error(err))
 	}
 
 	var fsused uint64
@@ -282,7 +282,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 				if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
 					health = false
 				}
-				f, _ := strconv.ParseUint(child.FSUsed, 10, 64)
+				f, _ := strconv.ParseUint(child.FSUsed.String(), 10, 64)
 				fsused += f
 			} else {
 				health = false
@@ -294,7 +294,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			blk.Health = "OK"
 		}
 
-		blk.FSUsed = strconv.FormatUint(fsused, 10)
+		blk.FSUsed = json2.Number(fmt.Sprintf("%d", fsused))
 		blk.Children = blkChildren
 		if fsused > 0 {
 			blk.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(blk.Size)), 64)
@@ -322,23 +322,17 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 		return model.LSBLKModel{}
 	}
 
-	var ml []model.LSBLKModel
-
-	blockdevices := gjson.Get(string(str), "blockdevices").String()
-
-	logger.Info(blockdevices)
-
-	err := json2.Unmarshal([]byte(blockdevices), &ml)
+	blkList, err := ParseBlockDevices(str)
 	if err != nil {
-		logger.Error("Failed to unmarshal json", zap.Error(err))
+		logger.Error("Failed to parse block devices from output of lsblk", zap.Error(err))
 		return model.LSBLKModel{}
 	}
 
-	m := model.LSBLKModel{}
-	if len(ml) > 0 {
-		m = ml[0]
+	blk := model.LSBLKModel{}
+	if len(blkList) > 0 {
+		blk = blkList[0]
 	}
-	return m
+	return blk
 }
 
 func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
@@ -566,7 +560,7 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 		for _, child := range v.Children {
 			if len(child.MountPoint) > 0 {
 				isMount = true
-				avail, _ := strconv.ParseUint(child.FSAvail, 10, 64)
+				avail, _ := strconv.ParseUint(child.FSAvail.String(), 10, 64)
 				status.Avail += avail
 			}
 		}
@@ -607,4 +601,13 @@ func WalkDisk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.
 	}
 
 	return nil
+}
+
+func ParseBlockDevices(str []byte) ([]model.LSBLKModel, error) {
+	var blkList []model.LSBLKModel
+	if err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &blkList); err != nil {
+		return nil, err
+	}
+
+	return blkList, nil
 }

@@ -81,8 +81,8 @@ func GetStorageList(c *gin.Context) {
 
 			stor := model1.Storage{
 				MountPoint:  blkChild.MountPoint,
-				Size:        blkChild.FSSize,
-				Avail:       blkChild.FSAvail,
+				Size:        blkChild.FSSize.String(),
+				Avail:       blkChild.FSAvail.String(),
 				Path:        blkChild.Path,
 				Type:        blkChild.FsType,
 				DriveName:   blkChild.Name,

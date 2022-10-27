@@ -30,9 +30,9 @@ func sendDiskBySocket() {
 			systemDisk = service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
 
 			if systemDisk != nil {
-				s, _ := strconv.ParseUint(systemDisk.FSSize, 10, 64)
-				a, _ := strconv.ParseUint(systemDisk.FSAvail, 10, 64)
-				u, _ := strconv.ParseUint(systemDisk.FSUsed, 10, 64)
+				s, _ := strconv.ParseUint(systemDisk.FSSize.String(), 10, 64)
+				a, _ := strconv.ParseUint(systemDisk.FSAvail.String(), 10, 64)
+				u, _ := strconv.ParseUint(systemDisk.FSUsed.String(), 10, 64)
 				status.Size += s
 				status.Avail += a
 				status.Used += u
@@ -53,9 +53,9 @@ func sendDiskBySocket() {
 		}
 
 		for _, v := range currentDisk.Children {
-			s, _ := strconv.ParseUint(v.FSSize, 10, 64)
-			a, _ := strconv.ParseUint(v.FSAvail, 10, 64)
-			u, _ := strconv.ParseUint(v.FSUsed, 10, 64)
+			s, _ := strconv.ParseUint(v.FSSize.String(), 10, 64)
+			a, _ := strconv.ParseUint(v.FSAvail.String(), 10, 64)
+			u, _ := strconv.ParseUint(v.FSUsed.String(), 10, 64)
 			status.Size += s
 			status.Avail += a
 			status.Used += u

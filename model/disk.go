@@ -9,11 +9,13 @@
  */
 package model
 
+import "encoding/json"
+
 type LSBLKModel struct {
 	Name        string       `json:"name"`
 	FsType      string       `json:"fstype"`
 	Size        uint64       `json:"size"`
-	FSSize      string       `json:"fssize"`
+	FSSize      json.Number  `json:"fssize"`
 	Path        string       `json:"path"`
 	Model       string       `json:"model"` // 设备标识符
 	RM          bool         `json:"rm"`    // 是否为可移动设备
@@ -23,7 +25,7 @@ type LSBLKModel struct {
 	Type        string       `json:"type"`
 	Vendor      string       `json:"vendor"`  // 供应商
 	Rev         string       `json:"rev"`     // 修订版本
-	FSAvail     string       `json:"fsavail"` // 可用空间
+	FSAvail     json.Number  `json:"fsavail"` // 可用空间
 	FSUse       string       `json:"fsuse%"`  // 已用百分比
 	MountPoint  string       `json:"mountpoint"`
 	Format      string       `json:"format"`
@@ -32,7 +34,7 @@ type LSBLKModel struct {
 	UUID        string       `json:"uuid"`
 	PTUUID      string       `json:"ptuuid"`
 	PartUUID    string       `json:"partuuid"`
-	FSUsed      string       `json:"fsused"`
+	FSUsed      json.Number  `json:"fsused"`
 	Temperature int          `json:"temperature"`
 	Tran        string       `json:"tran"`
 	MinIO       uint64       `json:"min-io"`
