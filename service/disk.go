@@ -236,11 +236,11 @@ func (d *diskService) DeletePartition(path string) error {
 func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 	key := "system_lsblk"
 
-	if result, ok := Cache.Get(key); ok && isUseCache {
-
-		res, ok := result.([]model.LSBLKModel)
-		if ok {
-			return res
+	if isUseCache {
+		if result, ok := Cache.Get(key); ok {
+			if res, ok := result.([]model.LSBLKModel); ok {
+				return res
+			}
 		}
 	}
 
