@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
+	external "github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
-	gateway_common "github.com/IceWhaleTech/CasaOS-Gateway/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
@@ -215,7 +215,7 @@ func main() {
 		route.V2DocPath,
 	}
 	for _, apiPath := range apiPaths {
-		err = service.MyService.Gateway().CreateRoute(&gateway_common.Route{
+		err = service.MyService.Gateway().CreateRoute(&external.Route{
 			Path:   apiPath,
 			Target: "http://" + listener.Addr().String(),
 		})
