@@ -1,7 +1,7 @@
 package service
 
 import (
-	external "github.com/IceWhaleTech/CasaOS-Common/service/v1"
+	"github.com/IceWhaleTech/CasaOS-Common/external"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/wrapper"
