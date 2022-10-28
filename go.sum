@@ -84,8 +84,8 @@ github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3
 github.com/IceWhaleTech/CasaOS v0.3.6-alpha.1.0.20220923163414-730aee35919a h1:WRsIC/k0SJoKIFErqZfsG2dVSiQnXqfvZ8nZHGT6rh4=
 github.com/IceWhaleTech/CasaOS v0.3.6-alpha.1.0.20220923163414-730aee35919a/go.mod h1:RleJWUgawockMf52d0g5PB9xioc2c2H9SgdV5Gy+APs=
 github.com/IceWhaleTech/CasaOS-Common v0.0.0-20220901034123-ca130f6b5ce9/go.mod h1:2MiivEMzvh41codhEKUcn46WK3Ffesop/04qa9jsvQk=
-github.com/IceWhaleTech/CasaOS-Common v0.0.0-20221028205031-b7c1d053db0b h1:HKdwfgoFQbq9OoGrTVuBug1fUFADER0hy6o2L/RsLKA=
-github.com/IceWhaleTech/CasaOS-Common v0.0.0-20221028205031-b7c1d053db0b/go.mod h1:2MiivEMzvh41codhEKUcn46WK3Ffesop/04qa9jsvQk=
+github.com/IceWhaleTech/CasaOS-Common v0.3.7-1 h1:paay9dFGAWjNcjtCrN6ymvuU21KtxPoIpNG3wo10ufk=
+github.com/IceWhaleTech/CasaOS-Common v0.3.7-1/go.mod h1:2MiivEMzvh41codhEKUcn46WK3Ffesop/04qa9jsvQk=
 github.com/IceWhaleTech/CasaOS-Gateway v0.3.6/go.mod h1:hnZwGUzcOyiufMpVO7l3gu2gAm6Ws4TY4Nlj3kMshXA=
 github.com/Microsoft/go-winio v0.4.11/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
