@@ -3,7 +3,6 @@ module github.com/IceWhaleTech/CasaOS-LocalStorage
 go 1.19
 
 require (
-	github.com/IceWhaleTech/CasaOS v0.3.6-alpha.1.0.20220923163414-730aee35919a
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/getkin/kin-openapi v0.100.0
 	github.com/labstack/echo/v4 v4.9.0
@@ -13,6 +12,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.1 // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -68,7 +68,7 @@ require (
 )
 
 require (
-	github.com/IceWhaleTech/CasaOS-Common v0.3.7-1
+	github.com/IceWhaleTech/CasaOS-Common v0.3.7-1.0.20221028225624-13c1e94003cc
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-gonic/gin v1.8.1

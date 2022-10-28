@@ -5,7 +5,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/wrapper"
-	"github.com/IceWhaleTech/CasaOS/common"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 )
@@ -19,8 +18,8 @@ type Repository interface {
 	USB() USBService
 	LocalStorage() *v2.LocalStorageService
 	Gateway() external.ManagementService
-	Notify() common.NotifyService
-	Shares() common.ShareService
+	Notify() external.NotifyService
+	Shares() external.ShareService
 }
 
 func NewService(db *gorm.DB) Repository {
@@ -29,15 +28,8 @@ func NewService(db *gorm.DB) Repository {
 		panic(err)
 	}
 
-	notifyService, err := common.NewNotifyService(config.CommonInfo.RuntimePath)
-	if err != nil {
-		panic(err)
-	}
-
-	sharesService, err := common.NewShareService(config.CommonInfo.RuntimePath)
-	if err != nil {
-		panic(err)
-	}
+	notifyService := external.NewNotifyService(config.CommonInfo.RuntimePath)
+	sharesService := external.NewShareService(config.CommonInfo.RuntimePath)
 
 	return &store{
 		usb:          NewUSBService(),
@@ -54,8 +46,8 @@ type store struct {
 	disk         DiskService
 	localStorage *v2.LocalStorageService
 	gateway      external.ManagementService
-	notify       common.NotifyService
-	shares       common.ShareService
+	notify       external.NotifyService
+	shares       external.ShareService
 }
 
 func (c *store) Gateway() external.ManagementService {
@@ -74,10 +66,10 @@ func (c *store) LocalStorage() *v2.LocalStorageService {
 	return c.localStorage
 }
 
-func (c *store) Notify() common.NotifyService {
+func (c *store) Notify() external.NotifyService {
 	return c.notify
 }
 
-func (c *store) Shares() common.ShareService {
+func (c *store) Shares() external.ShareService {
 	return c.shares
 }
