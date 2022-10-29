@@ -3,8 +3,6 @@ module github.com/IceWhaleTech/CasaOS-LocalStorage
 go 1.19
 
 require (
-	github.com/IceWhaleTech/CasaOS v0.3.8-0.20221027155935-7bd5c6a2b400
-	github.com/IceWhaleTech/CasaOS-Gateway v0.3.6
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/getkin/kin-openapi v0.100.0
 	github.com/labstack/echo/v4 v4.9.0
@@ -14,6 +12,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.1 // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -69,26 +68,15 @@ require (
 )
 
 require (
-	github.com/IceWhaleTech/CasaOS-Common v0.0.0-20221018014511-b8868bc7bab1
+	github.com/IceWhaleTech/CasaOS-Common v0.3.7-2
 	github.com/deepmap/oapi-codegen v1.11.0
-	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-gonic/gin v1.8.1
-	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/sys/mountinfo v0.6.2
-	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pilebones/go-udev v0.9.0
 	github.com/robfig/cron v1.2.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/spf13/afero v1.8.2 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.12.0 // indirect
-	github.com/subosito/gotenv v1.3.0 // indirect
 	github.com/tidwall/gjson v1.14.3
 	go.uber.org/zap v1.23.0
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
