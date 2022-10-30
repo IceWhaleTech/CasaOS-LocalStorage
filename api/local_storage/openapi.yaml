@@ -385,11 +385,11 @@ components:
         source_base_path:
           type: string
           example: "/var/lib/casaos/files"
-        source_volume_paths:
+        source_volume_uuids:
           type: array
           items:
             type: string
-            example: /dev/sdb_1
+            example: 5c682e86-cec3-4761-9350-8e1a0c2d1ae9
         created_at:
           type: string
           readOnly: true

@@ -80,6 +80,7 @@ func GetStorageList(c *gin.Context) {
 			}
 
 			stor := model1.Storage{
+				UUID:        blkChild.UUID,
 				MountPoint:  blkChild.MountPoint,
 				Size:        blkChild.FSSize.String(),
 				Avail:       blkChild.FSAvail.String(),

@@ -6,7 +6,6 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
@@ -56,30 +55,26 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 
 	// expand source volume paths to source volumes
 	var sourceVolumes []*model2.Volume
-	if m.SourceVolumePaths != nil {
-		allVolumes, err := service.MyService.Disk().GetSerialAllFromDB()
+	if m.SourceVolumeUuids != nil {
+		volumesFromDB, err := service.MyService.Disk().GetSerialAllFromDB()
 		if err != nil {
 			message := err.Error()
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
 
-		sourceVolumes = make([]*model2.Volume, 0, len(*m.SourceVolumePaths))
-		for _, volumePath := range *m.SourceVolumePaths {
+		sourceVolumes = make([]*model2.Volume, 0, len(*m.SourceVolumeUuids))
+		for _, volumeUUID := range *m.SourceVolumeUuids {
 			volumeFound := false
-			for i := range allVolumes {
-				path, err := partition.GetDevicePath(allVolumes[i].UUID)
-				if err != nil {
-					continue
-				}
-
-				if volumePath == path {
+			for i := range volumesFromDB {
+				if volumeUUID == volumesFromDB[i].UUID {
 					volumeFound = true
-					sourceVolumes = append(sourceVolumes, &allVolumes[i])
+					sourceVolumes = append(sourceVolumes, &volumesFromDB[i])
+					break
 				}
 			}
 
 			if !volumeFound {
-				message := "volume " + volumePath + " not found, or it is not a CasaOS storage. Consider adding it to CasaOS first."
+				message := "volume " + volumeUUID + " not found, or it is not a CasaOS storage. Consider adding it to CasaOS first."
 				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 			}
 		}
@@ -113,8 +108,8 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 			merge.SourceBasePath = m.SourceBasePath
 		}
 
-		if m.SourceVolumePaths != nil {
-			merge.SourceVolumes = sourceVolumes
+		if m.SourceVolumeUuids != nil {
+			merge.SourceVolumes = sourceVolumes // which come from m.SourceVolumeUuids
 		}
 
 		if err := service.MyService.LocalStorage().UpdateMerge(merge); err != nil {
@@ -138,13 +133,9 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 func MergeAdapterOut(m model2.Merge) codegen.Merge {
 	id := int(m.ID)
 
-	sourceVolumePaths := make([]string, 0, len(m.SourceVolumes))
+	sourceVolumeUUIDs := make([]string, 0, len(m.SourceVolumes))
 	for _, volume := range m.SourceVolumes {
-		path, err := partition.GetDevicePath(volume.UUID)
-		if err != nil {
-			continue
-		}
-		sourceVolumePaths = append(sourceVolumePaths, path)
+		sourceVolumeUUIDs = append(sourceVolumeUUIDs, volume.UUID)
 	}
 
 	return codegen.Merge{
@@ -152,7 +143,7 @@ func MergeAdapterOut(m model2.Merge) codegen.Merge {
 		Fstype:            &m.FSType,
 		MountPoint:        m.MountPoint,
 		SourceBasePath:    m.SourceBasePath,
-		SourceVolumePaths: &sourceVolumePaths,
+		SourceVolumeUuids: &sourceVolumeUUIDs,
 		CreatedAt:         &m.CreatedAt,
 		UpdatedAt:         &m.UpdatedAt,
 	}
