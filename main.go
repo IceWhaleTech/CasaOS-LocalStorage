@@ -29,8 +29,10 @@ import (
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
+
+	_ "net/http/pprof"
 )
 
 const localhost = "127.0.0.1"
@@ -189,12 +191,18 @@ func ensureDefaultMergePoint() bool {
 }
 
 func main() {
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			logger.Info("pprof server ended", zap.Error(err))
+		}
+	}()
+
 	go monitorUSB()
 
 	sendStorageStats()
 
 	crontab := cron.New()
-	if err := crontab.AddFunc("*/5 * * * * *", func() { sendStorageStats() }); err != nil {
+	if _, err := crontab.AddFunc("*/5 * * * *", func() { sendStorageStats() }); err != nil {
 		logger.Error("crontab add func error", zap.Error(err))
 	}
 
