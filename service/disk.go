@@ -22,7 +22,6 @@ import (
 	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -251,7 +250,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 		return nil
 	}
 	var m []model.LSBLKModel
-	err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &m)
+	err := json2.Unmarshal([]byte(jsoniter.Get(str, "blockdevices").ToString()), &m)
 	if err != nil {
 		logger.Error("Failed to unmarshal json", zap.Error(err))
 	}
@@ -319,7 +318,7 @@ func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
 
 	var ml []model.LSBLKModel
 
-	blockdevices := gjson.Get(string(str), "blockdevices").String()
+	blockdevices := jsoniter.Get(str, "blockdevices").ToString()
 
 	logger.Info(blockdevices)
 
