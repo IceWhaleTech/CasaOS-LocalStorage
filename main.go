@@ -31,8 +31,6 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
-
-	_ "net/http/pprof"
 )
 
 const localhost = "127.0.0.1"
@@ -191,12 +189,6 @@ func ensureDefaultMergePoint() bool {
 }
 
 func main() {
-	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			logger.Info("pprof server ended", zap.Error(err))
-		}
-	}()
-
 	go monitorUSB()
 
 	sendStorageStats()

@@ -1,7 +1,6 @@
 package service
 
 import (
-	json2 "encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -57,7 +58,10 @@ const (
 	PersistentTypeCasaOS = "casaos"
 )
 
-var ErrVolumeWithEmptyUUID = errors.New("cannot save volume with empty uuid")
+var (
+	ErrVolumeWithEmptyUUID = errors.New("cannot save volume with empty uuid")
+	json2                  = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
