@@ -1,7 +1,7 @@
 package service
 
 import (
-	json2 "encoding/json"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -21,7 +23,6 @@ import (
 	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -57,7 +58,10 @@ const (
 	PersistentTypeCasaOS = "casaos"
 )
 
-var ErrVolumeWithEmptyUUID = errors.New("cannot save volume with empty uuid")
+var (
+	ErrVolumeWithEmptyUUID = errors.New("cannot save volume with empty uuid")
+	json2                  = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
@@ -294,7 +298,7 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			blk.Health = "OK"
 		}
 
-		blk.FSUsed = json2.Number(fmt.Sprintf("%d", fsused))
+		blk.FSUsed = json.Number(fmt.Sprintf("%d", fsused))
 		blk.Children = blkChildren
 		if fsused > 0 {
 			blk.UsedPercent, err = strconv.ParseFloat(fmt.Sprintf("%.4f", float64(fsused)/float64(blk.Size)), 64)
@@ -605,7 +609,7 @@ func WalkDisk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.
 
 func ParseBlockDevices(str []byte) ([]model.LSBLKModel, error) {
 	var blkList []model.LSBLKModel
-	if err := json2.Unmarshal([]byte(gjson.Get(string(str), "blockdevices").String()), &blkList); err != nil {
+	if err := json2.Unmarshal([]byte(jsoniter.Get(str, "blockdevices").ToString()), &blkList); err != nil {
 		return nil, err
 	}
 

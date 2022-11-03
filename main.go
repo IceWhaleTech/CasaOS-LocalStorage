@@ -29,7 +29,7 @@ import (
 	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 )
 
@@ -193,8 +193,8 @@ func main() {
 
 	sendStorageStats()
 
-	crontab := cron.New()
-	if err := crontab.AddFunc("*/5 * * * * *", func() { sendStorageStats() }); err != nil {
+	crontab := cron.New(cron.WithSeconds())
+	if _, err := crontab.AddFunc("@every 5s", sendStorageStats); err != nil {
 		logger.Error("crontab add func error", zap.Error(err))
 	}
 
