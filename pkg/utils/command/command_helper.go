@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -15,37 +14,6 @@ func OnlyExec(cmdStr string) (string, error) {
 	buf, err := cmd.CombinedOutput()
 	println(string(buf))
 	return string(buf), err
-}
-
-func ExecResultStrArray(cmdStr string) ([]string, error) {
-	cmd := exec.Command("/bin/bash", "-c", cmdStr)
-	println(cmd.String())
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	defer stdout.Close()
-	if err = cmd.Start(); err != nil {
-		return nil, err
-	}
-	// str, err := ioutil.ReadAll(stdout)
-	output := []string{}
-	outputBuf := bufio.NewReader(stdout)
-	for {
-		line, _, err := outputBuf.ReadLine()
-		if err != nil {
-			if err.Error() != "EOF" {
-				fmt.Printf("Error :%s\n", err)
-			}
-			break
-		}
-		output = append(output, string(line))
-	}
-	if err := cmd.Wait(); err != nil {
-		return nil, err
-	}
-	return output, nil
 }
 
 func ExecResultStr(cmdStr string) (string, error) {
@@ -66,11 +34,7 @@ func ExecResultStr(cmdStr string) (string, error) {
 		return "", err
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return string(buf), err
-	}
-
-	return string(buf), nil
+	return string(buf), cmd.Wait()
 }
 
 // exec smart
