@@ -1,6 +1,6 @@
 github.com/BurntSushi/toml v1.2.0 h1:Rt8g24XnyGTyglgET/PRUNlrUeu9F5L+7FilkXfZgs0=
-github.com/IceWhaleTech/CasaOS-Common v0.3.7-4 h1:+36XRGoR+WgdfmbMkEYLYNl8yYmVvP5PzK05stSjICM=
-github.com/IceWhaleTech/CasaOS-Common v0.3.7-4/go.mod h1:2MiivEMzvh41codhEKUcn46WK3Ffesop/04qa9jsvQk=
+github.com/IceWhaleTech/CasaOS-Common v0.3.7-5 h1:CLPeUaFoGCA3WNnOWxtdFbBmLIg7odCQglZJ/c878uU=
+github.com/IceWhaleTech/CasaOS-Common v0.3.7-5/go.mod h1:2MiivEMzvh41codhEKUcn46WK3Ffesop/04qa9jsvQk=
 github.com/andybalholm/brotli v1.0.1 h1:KqhlKozYbRtJvsPrrEeXcO+N2l6NYT5A2QAFmSULpEc=
 github.com/andybalholm/brotli v1.0.1/go.mod h1:loMXtMfwqflxFJPmdbJO0a3KNoPuLBgiu3qAvBg8x/Y=
 github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
