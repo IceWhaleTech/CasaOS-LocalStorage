@@ -100,14 +100,11 @@ func updateFSName(m codegen.Mount) codegen.Mount {
 
 func updateExtended(m codegen.Mount) codegen.Mount {
 	if m.Extended == nil {
-		m.Extended = &codegen.Mount_Extended{}
+		extended := make(map[string]string)
+		m.Extended = &extended
 	}
 
-	if m.Extended.AdditionalProperties == nil {
-		m.Extended.AdditionalProperties = make(map[string]string)
-	}
-
-	m.Extended.AdditionalProperties[MergerFSExtendedKeySource] = *m.Source
+	(*m.Extended)[MergerFSExtendedKeySource] = *m.Source
 
 	return m
 }
