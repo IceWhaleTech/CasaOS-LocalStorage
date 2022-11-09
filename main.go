@@ -1,10 +1,11 @@
 //go:generate bash -c "mkdir -p codegen && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go"
-//go:generate bash -c "mkdir -p codegen/message_bus && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -package codegen https://raw.githubusercontent.com/IceWhaleTech/CasaOS-MessageBus/main/api/message_bus/openapi.yaml > codegen/message_bus/api.go"
+//go:generate bash -c "mkdir -p codegen/message_bus && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -package message_bus https://raw.githubusercontent.com/IceWhaleTech/CasaOS-MessageBus/main/api/message_bus/openapi.yaml > codegen/message_bus/api.go"
 // TODO update OpenAPI URL above when release ^^^
 
 package main
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"flag"
@@ -191,7 +192,10 @@ func ensureDefaultMergePoint() bool {
 }
 
 func main() {
-	go monitorUSB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go monitorUSB(ctx)
 
 	sendStorageStats()
 
@@ -201,7 +205,6 @@ func main() {
 	}
 
 	crontab.Start()
-
 	defer crontab.Stop()
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
@@ -209,6 +212,7 @@ func main() {
 		panic(err)
 	}
 
+	// register at gateway
 	apiPaths := []string{
 		"/v1/usb",
 		"/v1/disks",
@@ -223,6 +227,13 @@ func main() {
 		})
 
 		if err != nil {
+			panic(err)
+		}
+	}
+
+	// register at message bus
+	for _, eventType := range common.EventTypes {
+		if _, err := service.MyService.MessageBus().RegisterEventTypeWithResponse(ctx, eventType); err != nil {
 			panic(err)
 		}
 	}
