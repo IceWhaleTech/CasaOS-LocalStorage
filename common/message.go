@@ -12,14 +12,31 @@ var (
 	// devtype -> action -> event
 	EventTypes map[string]map[string]message_bus.EventType
 
-	EventPropertyNamePath string
+	PropertyNameLookupMaps = map[string]map[string]string{
+		"disk": {
+			fmt.Sprintf("%s:%s", ServiceName, "bus"):    "ID_BUS",
+			fmt.Sprintf("%s:%s", ServiceName, "vendor"): "ID_VENDOR",
+			fmt.Sprintf("%s:%s", ServiceName, "model"):  "ID_MODEL",
+		},
+
+		"partition": {
+			fmt.Sprintf("%s:%s", ServiceName, "bus"):    "ID_BUS",
+			fmt.Sprintf("%s:%s", ServiceName, "vendor"): "ID_VENDOR",
+			fmt.Sprintf("%s:%s", ServiceName, "model"):  "ID_MODEL",
+			fmt.Sprintf("%s:%s", ServiceName, "uuid"):   "ID_FS_UUID", // the only difference
+		},
+	}
+
+	ActionPastTense = map[string]string{
+		"add":    "added",
+		"remove": "removed",
+	}
 )
 
 func init() {
-	EventPropertyNamePath = fmt.Sprintf("%s:%s", ServiceName, "path")
-
-	for _, devtype := range []string{"disk", "partition"} {
-		for _, action := range []string{"add", "remove"} {
+	// generate event types iteratively, instead of hard coding
+	for devtype := range PropertyNameLookupMaps { // devtype = e.g. disk, partition
+		for action := range ActionPastTense { // action = e.g. add, remove
 			if EventTypes == nil {
 				EventTypes = make(map[string]map[string]message_bus.EventType)
 			}
@@ -28,31 +45,46 @@ func init() {
 				EventTypes[devtype] = make(map[string]message_bus.EventType)
 			}
 
+			propertyTypeList := make([]message_bus.PropertyType, 0)
+			for propertyName := range PropertyNameLookupMaps[devtype] { // propertyName = e.g. local-storage:type
+				propertyTypeList = append(propertyTypeList, message_bus.PropertyType{
+					Name: utils.Ptr(propertyName), // DO NOT use &propertyName - it's the pointer to the iterator variable which will always be the same
+				})
+			}
+
 			EventTypes[devtype][action] = message_bus.EventType{
-				SourceID: utils.Ptr(ServiceName),
-				Name:     utils.Ptr(fmt.Sprintf("%s:%s:%s", ServiceName, devtype, action)),
-				PropertyTypeList: &[]message_bus.PropertyType{
-					{Name: utils.Ptr(EventPropertyNamePath)},
-				},
+				SourceID:         utils.Ptr(ServiceName),                                                            // e.g. local-storage
+				Name:             utils.Ptr(fmt.Sprintf("%s:%s:%s", ServiceName, devtype, ActionPastTense[action])), // e.g. local-storage:disk:added
+				PropertyTypeList: &propertyTypeList,
 			}
 		}
 	}
 }
 
 func EventAdapter(e netlink.UEvent) *message_bus.Event {
-	eventType, ok := EventTypes[e.Env["DEVTYPE"]][string(e.Action)]
+	devType := e.Env["DEVTYPE"]
+
+	eventType, ok := EventTypes[devType][string(e.Action)]
 	if !ok {
 		return nil
 	}
 
+	properties := make([]message_bus.Property, 0)
+	for propertyName, envName := range PropertyNameLookupMaps[devType] {
+		value, ok := e.Env[envName]
+		if !ok {
+			continue
+		}
+
+		properties = append(properties, message_bus.Property{
+			Name:  utils.Ptr(propertyName), // DO NOT use &propertyName - it's the pointer to the iterator variable which will always be the same
+			Value: &value,
+		})
+	}
+
 	return &message_bus.Event{
-		SourceID: eventType.SourceID,
-		Name:     eventType.Name,
-		Properties: &[]message_bus.Property{
-			{
-				Name:  utils.Ptr(EventPropertyNamePath),
-				Value: utils.Ptr(e.Env["DEVNAME"]),
-			},
-		},
+		SourceID:   eventType.SourceID,
+		Name:       eventType.Name,
+		Properties: &properties,
 	}
 }
