@@ -195,7 +195,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go monitorUSB(ctx)
+	go monitorUEvent(ctx)
 
 	sendStorageStats()
 
@@ -232,9 +232,11 @@ func main() {
 	}
 
 	// register at message bus
-	for _, eventType := range common.EventTypes {
-		if _, err := service.MyService.MessageBus().RegisterEventTypeWithResponse(ctx, eventType); err != nil {
-			panic(err)
+	for _, eventTypesByAction := range common.EventTypes {
+		for _, eventType := range eventTypesByAction {
+			if _, err := service.MyService.MessageBus().RegisterEventTypeWithResponse(ctx, eventType); err != nil {
+				logger.Error("error when trying to register event type - the event type will not be discoverable by subscribers", zap.Error(err), zap.Any("event type", eventType))
+			}
 		}
 	}
 
