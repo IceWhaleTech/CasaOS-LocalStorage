@@ -1,11 +1,9 @@
 package main
 
 import (
-	"os"
-	"os/signal"
+	"context"
 	"reflect"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -82,7 +80,7 @@ func sendUSBBySocket() {
 	}
 }
 
-func monitorUSB() {
+func monitorUSB(ctx context.Context) {
 	var matcher netlink.Matcher
 
 	conn := new(netlink.UEventConn)
@@ -92,19 +90,18 @@ func monitorUSB() {
 	defer conn.Close()
 
 	queue := make(chan netlink.UEvent)
-	errors := make(chan error)
-	quit := conn.Monitor(queue, errors, matcher)
+	defer close(queue)
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	go func() {
-		<-signals
-		close(quit)
-		os.Exit(0)
-	}()
+	errors := make(chan error)
+	defer close(errors)
+
+	quit := conn.Monitor(queue, errors, matcher)
+	defer close(quit)
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case uevent := <-queue:
 			if uevent.Env["DEVTYPE"] == "partition" && uevent.Env["ID_BUS"] == "usb" {
 				time.Sleep(1 * time.Second)
