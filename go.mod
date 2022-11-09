@@ -67,7 +67,7 @@ require (
 )
 
 require (
-	github.com/IceWhaleTech/CasaOS-Common v0.3.7-5.0.20221109024545-dc694c3a6546
+	github.com/IceWhaleTech/CasaOS-Common v0.3.8-alpha1
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-gonic/gin v1.8.1
