@@ -109,7 +109,7 @@ func monitorUEvent(ctx context.Context) {
 		case uevent := <-queue:
 
 			if event := common.EventAdapter(uevent); event != nil {
-				response, err := service.MyService.MessageBus().PublishEventWithResponse(ctx, *event.SourceID, *event.Name, *event.Properties)
+				response, err := service.MyService.MessageBus().PublishEventWithResponse(ctx, event.SourceID, event.Name, event.Properties)
 				if err != nil {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
 				}

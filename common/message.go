@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 
-	"github.com/IceWhaleTech/CasaOS-Common/utils"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/pilebones/go-udev/netlink"
 )
@@ -48,14 +47,14 @@ func init() {
 			propertyTypeList := make([]message_bus.PropertyType, 0)
 			for propertyName := range PropertyNameLookupMaps[devtype] { // propertyName = e.g. local-storage:type
 				propertyTypeList = append(propertyTypeList, message_bus.PropertyType{
-					Name: utils.Ptr(propertyName), // DO NOT use &propertyName - it's the pointer to the iterator variable which will always be the same
+					Name: propertyName,
 				})
 			}
 
 			EventTypes[devtype][action] = message_bus.EventType{
-				SourceID:         utils.Ptr(ServiceName),                                                            // e.g. local-storage
-				Name:             utils.Ptr(fmt.Sprintf("%s:%s:%s", ServiceName, devtype, ActionPastTense[action])), // e.g. local-storage:disk:added
-				PropertyTypeList: &propertyTypeList,
+				SourceID:         ServiceName,                                                            // e.g. local-storage
+				Name:             fmt.Sprintf("%s:%s:%s", ServiceName, devtype, ActionPastTense[action]), // e.g. local-storage:disk:added
+				PropertyTypeList: propertyTypeList,
 			}
 		}
 	}
@@ -77,14 +76,14 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 		}
 
 		properties = append(properties, message_bus.Property{
-			Name:  utils.Ptr(propertyName), // DO NOT use &propertyName - it's the pointer to the iterator variable which will always be the same
-			Value: &value,
+			Name:  propertyName,
+			Value: value,
 		})
 	}
 
 	return &message_bus.Event{
 		SourceID:   eventType.SourceID,
 		Name:       eventType.Name,
-		Properties: &properties,
+		Properties: properties,
 	}
 }
