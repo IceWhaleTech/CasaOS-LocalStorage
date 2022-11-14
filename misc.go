@@ -109,6 +109,10 @@ func monitorUEvent(ctx context.Context) {
 		case uevent := <-queue:
 
 			if event := common.EventAdapter(uevent); event != nil {
+
+				// add UI properties to applicable events so that CasaOS UI can render it
+				event := common.EventAdapterWithUIProperties(event)
+
 				response, err := service.MyService.MessageBus().PublishEventWithResponse(ctx, event.SourceID, event.Name, event.Properties)
 				if err != nil {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))

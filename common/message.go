@@ -58,6 +58,8 @@ func init() {
 			}
 		}
 	}
+
+	EventTypes["disk"]["add"] = AddUIPropertyTypes(EventTypes["disk"]["add"])
 }
 
 func EventAdapter(e netlink.UEvent) *message_bus.Event {
@@ -86,4 +88,25 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 		Name:       eventType.Name,
 		Properties: properties,
 	}
+}
+
+func PropertiesToMap(properties []message_bus.Property) map[string]string {
+	m := make(map[string]string)
+	for _, property := range properties {
+		m[property.Name] = property.Value
+	}
+
+	return m
+}
+
+func MapToProperties(m map[string]string) []message_bus.Property {
+	properties := make([]message_bus.Property, 0)
+	for name, value := range m {
+		properties = append(properties, message_bus.Property{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return properties
 }
