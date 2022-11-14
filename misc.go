@@ -118,7 +118,7 @@ func monitorUEvent(ctx context.Context) {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
 				}
 
-				if response.StatusCode() != http.StatusCreated {
+				if response.StatusCode() != http.StatusOK {
 					logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
 				}
 			}
