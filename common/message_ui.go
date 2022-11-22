@@ -42,7 +42,7 @@ func EventAdapterWithUIProperties(event *message_bus.Event) *message_bus.Event {
 
 	switch event.Name {
 	case fmt.Sprintf("%s:%s:%s", ServiceName, "disk", "added"):
-		propertyMap := PropertiesToMap(event.Properties)
+		propertyMap := make(map[string]string)
 
 		vendor := propertyMap[fmt.Sprintf("%s:%s", ServiceName, "vendor")]
 		model := propertyMap[fmt.Sprintf("%s:%s", ServiceName, "model")]
@@ -52,7 +52,7 @@ func EventAdapterWithUIProperties(event *message_bus.Event) *message_bus.Event {
 		propertyMap[UIPropertyNameIcon1] = "casaos-icon-disk"
 		propertyMap[UIPropertyNameMessage1] = fmt.Sprintf("A new disk, %s %s, is added.", vendor, model)
 
-		event.Properties = MapToProperties(propertyMap)
+		event.Properties = propertyMap
 	}
 
 	return event
