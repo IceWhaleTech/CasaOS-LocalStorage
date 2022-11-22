@@ -70,17 +70,14 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 		return nil
 	}
 
-	properties := make([]message_bus.Property, 0)
+	properties := make(map[string]string)
 	for propertyName, envName := range PropertyNameLookupMaps[devType] {
 		value, ok := e.Env[envName]
 		if !ok {
 			continue
 		}
+		properties[propertyName] = value
 
-		properties = append(properties, message_bus.Property{
-			Name:  propertyName,
-			Value: value,
-		})
 	}
 
 	return &message_bus.Event{
@@ -88,25 +85,4 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 		Name:       eventType.Name,
 		Properties: properties,
 	}
-}
-
-func PropertiesToMap(properties []message_bus.Property) map[string]string {
-	m := make(map[string]string)
-	for _, property := range properties {
-		m[property.Name] = property.Value
-	}
-
-	return m
-}
-
-func MapToProperties(m map[string]string) []message_bus.Property {
-	properties := make([]message_bus.Property, 0)
-	for name, value := range m {
-		properties = append(properties, message_bus.Property{
-			Name:  name,
-			Value: value,
-		})
-	}
-
-	return properties
 }
