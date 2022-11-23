@@ -39,7 +39,7 @@ func ExecResultStr(cmdStr string) (string, error) {
 
 // exec smart
 func ExecSmartCTLByPath(path string) []byte {
-	timeout := 3
+	timeout := 6
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
