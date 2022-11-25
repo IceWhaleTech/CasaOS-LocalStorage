@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -112,6 +113,25 @@ func monitorUEvent(ctx context.Context) {
 
 				// add UI properties to applicable events so that CasaOS UI can render it
 				event := common.EventAdapterWithUIProperties(event)
+
+				if v, ok := event.Properties["local-storage:path"]; ok && strings.Contains(event.Name, "disk") {
+					diskModel := service.MyService.Disk().GetDiskInfo(v)
+					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
+						event.Properties["tran"] = diskModel.Tran
+						event.Properties["size"] = strconv.FormatUint(diskModel.Size, 10)
+						event.Properties["used"] = string(diskModel.FSUsed)
+						event.Properties["model"] = diskModel.Model
+						event.Properties["path"] = diskModel.Path
+						event.Properties["children:num"] = strconv.Itoa(len(diskModel.Children))
+
+						for i := 0; i < len(diskModel.Children); i++ {
+							event.Properties["children:"+strconv.Itoa(i)+":fstype"] = diskModel.Children[i].FsType
+							event.Properties["children:"+strconv.Itoa(i)+":path"] = diskModel.Children[i].Path
+							event.Properties["children:"+strconv.Itoa(i)+":size"] = string(diskModel.Children[i].FSSize)
+							event.Properties["children:"+strconv.Itoa(i)+":used"] = string(diskModel.Children[i].FSUsed)
+						}
+					}
+				}
 
 				response, err := service.MyService.MessageBus().PublishEventWithResponse(ctx, event.SourceID, event.Name, event.Properties)
 				if err != nil {

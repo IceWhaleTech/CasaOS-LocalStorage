@@ -51,7 +51,9 @@ func EventAdapterWithUIProperties(event *message_bus.Event) *message_bus.Event {
 		propertyMap[UIPropertyNameTitle] = "New disk found"
 		propertyMap[UIPropertyNameIcon1] = "casaos-icon-disk"
 		propertyMap[UIPropertyNameMessage1] = fmt.Sprintf("A new disk, %s %s, is added.", vendor, model)
-
+		for k, v := range event.Properties {
+			propertyMap[k] = v
+		}
 		event.Properties = propertyMap
 	}
 
