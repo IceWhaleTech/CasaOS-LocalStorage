@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -520,15 +521,19 @@ func (d *diskService) CheckSerialDiskMount() {
 			// mount point check
 			mountPoint := m
 			if !file.CheckNotExist(m) {
-				i := 1
-				for {
-					mountPoint = m + "-" + strconv.Itoa(i)
-					if file.CheckNotExist(mountPoint) {
-						break
+				dir, _ := ioutil.ReadDir(m)
+				if len(dir) > 0 {
+					i := 1
+					for {
+						mountPoint = m + "-" + strconv.Itoa(i)
+						if file.CheckNotExist(mountPoint) {
+							break
+						}
+						i++
 					}
-					i++
+					logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
 				}
-				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
+
 			}
 
 			if output, err := d.MountDisk(blkChild.Path, mountPoint); err != nil {
