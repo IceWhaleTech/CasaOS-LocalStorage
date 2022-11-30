@@ -8,6 +8,10 @@ type SmartctlA struct {
 		BuildInfo    string   `json:"build_info"`
 		Argv         []string `json:"argv"`
 		ExitStatus   int      `json:"exit_status"`
+		Messages     []struct {
+			String   string `json:"string"`
+			Severity string `json:"severity"`
+		} `json:"messages"`
 	} `json:"smartctl"`
 	Device struct {
 		Name     string `json:"name"`
