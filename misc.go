@@ -1,14 +1,15 @@
 package main
 
 import (
-	"os"
-	"os/signal"
+	"context"
+	"net/http"
 	"reflect"
 	"strconv"
-	"syscall"
+	"strings"
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/pilebones/go-udev/netlink"
@@ -82,7 +83,7 @@ func sendUSBBySocket() {
 	}
 }
 
-func monitorUSB() {
+func monitorUEvent(ctx context.Context) {
 	var matcher netlink.Matcher
 
 	conn := new(netlink.UEventConn)
@@ -92,25 +93,70 @@ func monitorUSB() {
 	defer conn.Close()
 
 	queue := make(chan netlink.UEvent)
-	errors := make(chan error)
-	quit := conn.Monitor(queue, errors, matcher)
+	defer close(queue)
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	go func() {
-		<-signals
-		close(quit)
-		os.Exit(0)
-	}()
+	errors := make(chan error)
+	defer close(errors)
+
+	quit := conn.Monitor(queue, errors, matcher)
+	defer close(quit)
 
 	for {
 		select {
+
+		case <-ctx.Done():
+			return
+
 		case uevent := <-queue:
-			if uevent.Env["DEVTYPE"] == "partition" && uevent.Env["ID_BUS"] == "usb" {
-				time.Sleep(1 * time.Second)
-				sendUSBBySocket()
-				continue
+
+			if event := common.EventAdapter(uevent); event != nil {
+
+				// add UI properties to applicable events so that CasaOS UI can render it
+				event := common.EventAdapterWithUIProperties(event)
+
+				if v, ok := event.Properties["local-storage:path"]; ok && strings.Contains(event.Name, "disk") {
+					diskModel := service.MyService.Disk().GetDiskInfo(v)
+					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
+						event.Properties["tran"] = diskModel.Tran
+						event.Properties["size"] = strconv.FormatUint(diskModel.Size, 10)
+						event.Properties["used"] = string(diskModel.FSUsed)
+						event.Properties["model"] = diskModel.Model
+						event.Properties["path"] = diskModel.Path
+						event.Properties["children:num"] = strconv.Itoa(len(diskModel.Children))
+						mountPoint := []string{}
+						for i := 0; i < len(diskModel.Children); i++ {
+							mountPoint = append(mountPoint, diskModel.Children[i].MountPoint)
+							event.Properties["children:"+strconv.Itoa(i)+":fstype"] = diskModel.Children[i].FsType
+							event.Properties["children:"+strconv.Itoa(i)+":path"] = diskModel.Children[i].Path
+							event.Properties["children:"+strconv.Itoa(i)+":size"] = string(diskModel.Children[i].FSSize)
+							event.Properties["children:"+strconv.Itoa(i)+":used"] = string(diskModel.Children[i].FSUsed)
+
+						}
+						event.Properties["children:mountpoint"] = strings.Join(mountPoint, ",")
+					}
+				}
+
+				response, err := service.MyService.MessageBus().PublishEventWithResponse(ctx, event.SourceID, event.Name, event.Properties)
+				if err != nil {
+					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+				}
+
+				if response.StatusCode() != http.StatusOK {
+					logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+				}
 			}
+
+			switch uevent.Env["DEVTYPE"] {
+			case "partition":
+
+				switch uevent.Env["ID_BUS"] {
+				case "usb":
+					time.Sleep(1 * time.Second)
+					sendUSBBySocket()
+					continue
+				}
+			}
+
 		case err := <-errors:
 			logger.Error("udev err", zap.Error(err))
 		}

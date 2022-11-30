@@ -1,8 +1,11 @@
-//go:generate bash -c "mkdir -p codegen && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go"
+//go:generate bash -c "mkdir -p codegen && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -generate types,server,spec -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go"
+//go:generate bash -c "mkdir -p codegen/message_bus && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -generate types,client -package message_bus https://raw.githubusercontent.com/IceWhaleTech/CasaOS-MessageBus/main/api/message_bus/openapi.yaml > codegen/message_bus/api.go"
+// TODO update OpenAPI URL above when release ^^^
 
 package main
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"flag"
@@ -67,8 +70,8 @@ func init() {
 	sqliteDB := sqlite.GetGlobalDB(*dbFlag)
 
 	service.MyService = service.NewService(sqliteDB)
-
 	service.Cache = cache.Init()
+	service.MyService.Disk().InitCheck()
 
 	service.MyService.Disk().CheckSerialDiskMount()
 
@@ -189,7 +192,10 @@ func ensureDefaultMergePoint() bool {
 }
 
 func main() {
-	go monitorUSB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go monitorUEvent(ctx)
 
 	sendStorageStats()
 
@@ -199,7 +205,6 @@ func main() {
 	}
 
 	crontab.Start()
-
 	defer crontab.Stop()
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
@@ -207,6 +212,7 @@ func main() {
 		panic(err)
 	}
 
+	// register at gateway
 	apiPaths := []string{
 		"/v1/usb",
 		"/v1/disks",
@@ -222,6 +228,15 @@ func main() {
 
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	// register at message bus
+	for _, eventTypesByAction := range common.EventTypes {
+		for _, eventType := range eventTypesByAction {
+			if _, err := service.MyService.MessageBus().RegisterEventTypeWithResponse(ctx, eventType); err != nil {
+				logger.Error("error when trying to register event type - the event type will not be discoverable by subscribers", zap.Error(err), zap.Any("event type", eventType))
+			}
 		}
 	}
 

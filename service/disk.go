@@ -1,10 +1,14 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -14,6 +18,8 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
@@ -46,6 +52,7 @@ type DiskService interface {
 	DeleteMountPointFromDB(path, mountPoint string) error
 	GetSerialAllFromDB() ([]model2.Volume, error)
 	SaveMountPointToDB(m model2.Volume) error
+	InitCheck()
 }
 
 type diskService struct {
@@ -514,15 +521,19 @@ func (d *diskService) CheckSerialDiskMount() {
 			// mount point check
 			mountPoint := m
 			if !file.CheckNotExist(m) {
-				i := 1
-				for {
-					mountPoint = m + "-" + strconv.Itoa(i)
-					if file.CheckNotExist(mountPoint) {
-						break
+				dir, _ := ioutil.ReadDir(m)
+				if len(dir) > 0 {
+					i := 1
+					for {
+						mountPoint = m + "-" + strconv.Itoa(i)
+						if file.CheckNotExist(mountPoint) {
+							break
+						}
+						i++
 					}
-					i++
+					logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
 				}
-				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
+
 			}
 
 			if output, err := d.MountDisk(blkChild.Path, mountPoint); err != nil {
@@ -573,6 +584,74 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 		}
 	}
 	return statusList
+}
+
+func (d *diskService) InitCheck() {
+	diskMap := make(map[string]model.LSBLKModel)
+	diskMapNew := make(map[string]model.LSBLKModel)
+	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, "disk.temp")
+	if file.Exists(diskTempFilePath) {
+		tempData := file.ReadFullFile(diskTempFilePath)
+		err := json.Unmarshal(tempData, &diskMap)
+		if err != nil {
+			os.Remove(diskTempFilePath)
+		}
+	}
+
+	diskList := MyService.Disk().LSBLK(false)
+	for _, v := range diskList {
+		if v.Tran == "sata" {
+			if _, ok := diskMap[v.Serial]; !ok {
+				properties := common.AdditionalProperties(v)
+				eventModel := message_bus.Event{
+					SourceID:   "local-storage",
+					Name:       "local-storage:disk:added",
+					Properties: properties,
+				}
+
+				// add UI properties to applicable events so that CasaOS UI can render it
+				event := common.EventAdapterWithUIProperties(&eventModel)
+				time.Sleep(time.Second * 5)
+				response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
+				if err != nil {
+					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+				}
+
+				if response.StatusCode() != http.StatusOK {
+					logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+				}
+
+			}
+			diskMapNew[v.Serial] = v
+		}
+	}
+	for k, v := range diskMap {
+		if _, ok := diskMapNew[k]; !ok {
+			properties := common.AdditionalProperties(v)
+			eventModel := message_bus.Event{
+				SourceID:   "local-storage",
+				Name:       "local-storage:disk:removed",
+				Properties: properties,
+			}
+			// add UI properties to applicable events so that CasaOS UI can render it
+			event := common.EventAdapterWithUIProperties(&eventModel)
+			time.Sleep(time.Second * 5)
+			response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
+			if err != nil {
+				logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+			}
+
+			if response.StatusCode() != http.StatusOK {
+				logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+			}
+		}
+	}
+	data, err := json.Marshal(diskMapNew)
+	if err != nil {
+		return
+	}
+	file.WriteToPath(data, config.AppInfo.DBPath, "disk.temp")
+
 }
 
 func NewDiskService(db *gorm.DB) DiskService {
