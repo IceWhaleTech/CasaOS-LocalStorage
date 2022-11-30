@@ -117,22 +117,7 @@ func monitorUEvent(ctx context.Context) {
 				if v, ok := event.Properties["local-storage:path"]; ok && strings.Contains(event.Name, "disk") {
 					diskModel := service.MyService.Disk().GetDiskInfo(v)
 					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
-						event.Properties["tran"] = diskModel.Tran
-						event.Properties["size"] = strconv.FormatUint(diskModel.Size, 10)
-						event.Properties["used"] = string(diskModel.FSUsed)
-						event.Properties["model"] = diskModel.Model
-						event.Properties["path"] = diskModel.Path
-						event.Properties["children:num"] = strconv.Itoa(len(diskModel.Children))
-						mountPoint := []string{}
-						for i := 0; i < len(diskModel.Children); i++ {
-							mountPoint = append(mountPoint, diskModel.Children[i].MountPoint)
-							event.Properties["children:"+strconv.Itoa(i)+":fstype"] = diskModel.Children[i].FsType
-							event.Properties["children:"+strconv.Itoa(i)+":path"] = diskModel.Children[i].Path
-							event.Properties["children:"+strconv.Itoa(i)+":size"] = string(diskModel.Children[i].FSSize)
-							event.Properties["children:"+strconv.Itoa(i)+":used"] = string(diskModel.Children[i].FSUsed)
-
-						}
-						event.Properties["children:mountpoint"] = strings.Join(mountPoint, ",")
+						event.Properties = common.AdditionalProperties(diskModel)
 					}
 				}
 
