@@ -602,24 +602,10 @@ func (d *diskService) InitCheck() {
 	for _, v := range diskList {
 		if v.Tran == "sata" {
 			if _, ok := diskMap[v.Serial]; !ok {
-				properties := make(map[string]string)
-				properties["tran"] = v.Tran
-				properties["size"] = strconv.FormatUint(v.Size, 10)
-				properties["used"] = string(v.FSUsed)
-				properties["model"] = v.Model
-				properties["path"] = v.Path
-				properties["children:num"] = strconv.Itoa(len(v.Children))
-
-				for i := 0; i < len(v.Children); i++ {
-					properties["children:"+strconv.Itoa(i)+":fstype"] = v.Children[i].FsType
-					properties["children:"+strconv.Itoa(i)+":path"] = v.Children[i].Path
-					properties["children:"+strconv.Itoa(i)+":size"] = string(v.Children[i].FSSize)
-					properties["children:"+strconv.Itoa(i)+":used"] = string(v.Children[i].FSUsed)
-				}
-
+				properties := common.AdditionalProperties(v)
 				eventModel := message_bus.Event{
 					SourceID:   "local-storage",
-					Name:       "local-storage:disk:removed",
+					Name:       "local-storage:disk:added",
 					Properties: properties,
 				}
 
@@ -637,6 +623,27 @@ func (d *diskService) InitCheck() {
 
 			}
 			diskMapNew[v.Serial] = v
+		}
+	}
+	for k, v := range diskMap {
+		if _, ok := diskMapNew[k]; !ok {
+			properties := common.AdditionalProperties(v)
+			eventModel := message_bus.Event{
+				SourceID:   "local-storage",
+				Name:       "local-storage:disk:removed",
+				Properties: properties,
+			}
+			// add UI properties to applicable events so that CasaOS UI can render it
+			event := common.EventAdapterWithUIProperties(&eventModel)
+			time.Sleep(time.Second * 5)
+			response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
+			if err != nil {
+				logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+			}
+
+			if response.StatusCode() != http.StatusOK {
+				logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+			}
 		}
 	}
 	data, err := json.Marshal(diskMapNew)

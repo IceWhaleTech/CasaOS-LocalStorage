@@ -2,8 +2,11 @@ package common
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/pilebones/go-udev/netlink"
 )
 
@@ -60,8 +63,6 @@ func init() {
 			}
 		}
 	}
-
-	EventTypes["disk"]["add"] = AddUIPropertyTypes(EventTypes["disk"]["add"])
 }
 
 func EventAdapter(e netlink.UEvent) *message_bus.Event {
@@ -87,4 +88,26 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 		Name:       eventType.Name,
 		Properties: properties,
 	}
+}
+
+func AdditionalProperties(v model.LSBLKModel) map[string]string {
+	properties := make(map[string]string)
+	properties["tran"] = v.Tran
+	properties["size"] = strconv.FormatUint(v.Size, 10)
+	properties["used"] = string(v.FSUsed)
+	properties["model"] = v.Model
+	properties["path"] = v.Path
+	properties["serial"] = v.Serial
+	properties["uuid"] = v.UUID
+	properties["children:num"] = strconv.Itoa(len(v.Children))
+	mountPoint := []string{}
+	for i := 0; i < len(v.Children); i++ {
+		mountPoint = append(mountPoint, v.Children[i].MountPoint)
+		properties["children:"+strconv.Itoa(i)+":fstype"] = v.Children[i].FsType
+		properties["children:"+strconv.Itoa(i)+":path"] = v.Children[i].Path
+		properties["children:"+strconv.Itoa(i)+":size"] = string(v.Children[i].FSSize)
+		properties["children:"+strconv.Itoa(i)+":used"] = string(v.Children[i].FSUsed)
+	}
+	properties["mountpoint"] = strings.Join(mountPoint, ",")
+	return properties
 }

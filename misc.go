@@ -123,13 +123,16 @@ func monitorUEvent(ctx context.Context) {
 						event.Properties["model"] = diskModel.Model
 						event.Properties["path"] = diskModel.Path
 						event.Properties["children:num"] = strconv.Itoa(len(diskModel.Children))
-
+						mountPoint := []string{}
 						for i := 0; i < len(diskModel.Children); i++ {
+							mountPoint = append(mountPoint, diskModel.Children[i].MountPoint)
 							event.Properties["children:"+strconv.Itoa(i)+":fstype"] = diskModel.Children[i].FsType
 							event.Properties["children:"+strconv.Itoa(i)+":path"] = diskModel.Children[i].Path
 							event.Properties["children:"+strconv.Itoa(i)+":size"] = string(diskModel.Children[i].FSSize)
 							event.Properties["children:"+strconv.Itoa(i)+":used"] = string(diskModel.Children[i].FSUsed)
+
 						}
+						event.Properties["children:mountpoint"] = strings.Join(mountPoint, ",")
 					}
 				}
 
