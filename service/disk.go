@@ -268,8 +268,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 
 	var fsused uint64
 
-	health := true
-
 	result := make([]model.LSBLKModel, 0)
 
 	for _, blk := range blkList {
@@ -281,28 +279,27 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 		fsused = 0
 
 		var blkChildren []model.LSBLKModel
+		smart := MyService.Disk().SmartCTL(blk.Path)
 		for _, child := range blk.Children {
 			if child.RM {
-				output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
-				if err != nil {
-					logger.Error("Failed to exec shell", zap.Error(err))
-					return nil
-				}
 
-				child.Health = strings.TrimSpace(output)
-				if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
-					health = false
-				}
+				// if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
+				// 	health = false
+				// }
 				f, _ := strconv.ParseUint(child.FSUsed.String(), 10, 64)
 				fsused += f
-			} else {
-				health = false
 			}
 			blkChildren = append(blkChildren, child)
 		}
-
-		if health {
+		if smart.SmartStatus.Passed {
 			blk.Health = "OK"
+		} else {
+			for _, v := range smart.Smartctl.Messages {
+				if strings.Contains(v.String, "STANDBY") {
+					blk.Health = "OK"
+					break
+				}
+			}
 		}
 
 		blk.FSUsed = json.Number(fmt.Sprintf("%d", fsused))
@@ -314,7 +311,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			}
 		}
 		result = append(result, blk)
-		health = true
 	}
 
 	if len(result) > 0 {
