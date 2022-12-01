@@ -596,7 +596,7 @@ func (d *diskService) InitCheck() {
 
 	diskList := MyService.Disk().LSBLK(false)
 	for _, v := range diskList {
-		if v.Tran == "sata" {
+		if IsDiskSupported(v) {
 			if _, ok := diskMap[v.Serial]; !ok {
 				properties := common.AdditionalProperties(v)
 				eventModel := message_bus.Event{
