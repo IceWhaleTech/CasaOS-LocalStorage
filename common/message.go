@@ -22,13 +22,13 @@ var (
 			fmt.Sprintf("%s:%s", ServiceName, "path"):   "DEVNAME",
 		},
 
-		"partition": {
-			fmt.Sprintf("%s:%s", ServiceName, "bus"):    "ID_BUS",
-			fmt.Sprintf("%s:%s", ServiceName, "vendor"): "ID_VENDOR",
-			fmt.Sprintf("%s:%s", ServiceName, "model"):  "ID_MODEL",
-			fmt.Sprintf("%s:%s", ServiceName, "uuid"):   "ID_FS_UUID", // the only difference
-			fmt.Sprintf("%s:%s", ServiceName, "path"):   "DEVNAME",
-		},
+		// "partition": {
+		// 	fmt.Sprintf("%s:%s", ServiceName, "bus"):    "ID_BUS",
+		// 	fmt.Sprintf("%s:%s", ServiceName, "vendor"): "ID_VENDOR",
+		// 	fmt.Sprintf("%s:%s", ServiceName, "model"):  "ID_MODEL",
+		// 	fmt.Sprintf("%s:%s", ServiceName, "uuid"):   "ID_FS_UUID", // the only difference
+		// 	fmt.Sprintf("%s:%s", ServiceName, "path"):   "DEVNAME",
+		// },
 	}
 
 	ActionPastTense = map[string]string{

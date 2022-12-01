@@ -1,8 +1,6 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 )
 
@@ -17,15 +15,12 @@ func EventAdapterWithUIProperties(event *message_bus.Event) *message_bus.Event {
 		return event
 	}
 
-	switch event.Name {
-	case fmt.Sprintf("%s:%s:%s", ServiceName, "disk", "added"):
-		propertyMap := make(map[string]string)
+	propertyMap := make(map[string]string)
 
-		for k, v := range event.Properties {
-			propertyMap[k] = v
-		}
-		event.Properties = propertyMap
+	for k, v := range event.Properties {
+		propertyMap[k] = v
 	}
+	event.Properties = propertyMap
 
 	return event
 }
