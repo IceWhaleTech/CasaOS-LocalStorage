@@ -107,8 +107,6 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 		a, err := v.Children[i].FSAvail.Int64()
 		if err == nil {
 			avail += a
-		} else {
-			fmt.Println(err)
 		}
 		mountPoint = append(mountPoint, v.Children[i].MountPoint)
 		properties["children:"+strconv.Itoa(i)+":fstype"] = v.Children[i].FsType
@@ -118,6 +116,8 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 	}
 	properties["avail"] = strconv.FormatInt(avail, 10)
 
+
 	properties["mount_point"] = strings.Join(mountPoint, ",")
+
 	return properties
 }
