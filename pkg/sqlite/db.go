@@ -117,7 +117,7 @@ func GetDBByFile(dbFile string) *gorm.DB {
 
 	c, _ := db.DB()
 	c.SetMaxIdleConns(10)
-	c.SetMaxOpenConns(100)
+	c.SetMaxOpenConns(1)
 	c.SetConnMaxIdleTime(time.Second * 1000)
 
 	if err := db.AutoMigrate(&model.Merge{}, &model.Volume{}); err != nil {
