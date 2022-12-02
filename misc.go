@@ -115,9 +115,13 @@ func monitorUEvent(ctx context.Context) {
 				event := common.EventAdapterWithUIProperties(event)
 
 				if v, ok := event.Properties["local-storage:path"]; ok && strings.Contains(event.Name, "disk") {
+
 					diskModel := service.MyService.Disk().GetDiskInfo(v)
 					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
-						event.Properties = common.AdditionalProperties(diskModel)
+						properties := common.AdditionalProperties(diskModel)
+						for k, v := range properties {
+							event.Properties[k] = v
+						}
 					}
 				}
 

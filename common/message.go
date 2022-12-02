@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
@@ -20,6 +21,8 @@ var (
 			fmt.Sprintf("%s:%s", ServiceName, "vendor"): "ID_VENDOR",
 			fmt.Sprintf("%s:%s", ServiceName, "model"):  "ID_MODEL",
 			fmt.Sprintf("%s:%s", ServiceName, "path"):   "DEVNAME",
+			"tran":   "ID_BUS",
+			"serial": "ID_SERIAL_SHORT",
 		},
 
 		// "partition": {
@@ -72,7 +75,7 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 	if !ok {
 		return nil
 	}
-
+	time.Sleep(time.Second * 3)
 	properties := make(map[string]string)
 	for propertyName, envName := range PropertyNameLookupMaps[devType] {
 		value, ok := e.Env[envName]
@@ -92,7 +95,6 @@ func EventAdapter(e netlink.UEvent) *message_bus.Event {
 
 func AdditionalProperties(v model.LSBLKModel) map[string]string {
 	properties := make(map[string]string)
-	properties["tran"] = v.Tran
 	properties["size"] = strconv.FormatUint(v.Size, 10)
 	properties["model"] = v.Model
 	properties["path"] = v.Path
@@ -105,6 +107,8 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 		a, err := v.Children[i].FSAvail.Int64()
 		if err == nil {
 			avail += a
+		} else {
+			fmt.Println(err)
 		}
 		mountPoint = append(mountPoint, v.Children[i].MountPoint)
 		properties["children:"+strconv.Itoa(i)+":fstype"] = v.Children[i].FsType
@@ -114,6 +118,6 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 	}
 	properties["avail"] = strconv.FormatInt(avail, 10)
 
-	properties["mountpoint"] = strings.Join(mountPoint, ",")
+	properties["mount_point"] = strings.Join(mountPoint, ",")
 	return properties
 }
