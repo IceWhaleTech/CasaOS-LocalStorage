@@ -321,7 +321,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 }
 
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
-	logger.Info("trying to get disk info...", zap.String("path", path))
 
 	str := command.ExecLSBLKByPath(path)
 	if str == nil {
