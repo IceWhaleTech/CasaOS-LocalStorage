@@ -150,10 +150,10 @@ func PostAddStorage(c *gin.Context) {
 
 	defer service.MyService.Disk().RemoveLSBLKCache()
 	defer delete(diskMap, path)
-
+	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	if format {
-		logger.Info("umounting storage...", zap.String("path", path))
-		if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+
+		if err := service.MyService.Disk().UmountPointAndRemoveDir(currentDisk); err != nil {
 			logger.Error("error when trying to umount storage", zap.Error(err), zap.String("path", path))
 			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 			return
@@ -172,15 +172,15 @@ func PostAddStorage(c *gin.Context) {
 			return
 		}
 	}
-
-	currentDisk := service.MyService.Disk().GetDiskInfo(path)
+	currentDisk = service.MyService.Disk().GetDiskInfo(path)
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
 
 		// mount disk
 		if output, err := service.MyService.Disk().MountDisk(blkChild.Path, mountPoint); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
+			logger.Error("err", zap.Error(err), zap.String("output", mountPoint))
+			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
 			return
 		}
 
@@ -258,8 +258,8 @@ func PutFormatStorage(c *gin.Context) {
 
 	defer service.MyService.Disk().RemoveLSBLKCache()
 	defer delete(diskMap, path)
-
-	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+	diskInfo := service.MyService.Disk().GetDiskInfo(path)
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(diskInfo); err != nil {
 		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		return
 	}
@@ -319,8 +319,8 @@ func DeleteStorage(c *gin.Context) {
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 		return
 	}
-
-	if err := service.MyService.Disk().UmountPointAndRemoveDir(path); err != nil {
+	diskInfo := service.MyService.Disk().GetDiskInfo(path)
+	if err := service.MyService.Disk().UmountPointAndRemoveDir(diskInfo); err != nil {
 		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		return
 	}

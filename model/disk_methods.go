@@ -13,9 +13,5 @@ func (m *LSBLKModel) GetMountPoint(name string) string {
 		name += "_" + m.Label
 	}
 
-	if m.Model != "" {
-		name += "_" + m.Model
-	}
-
 	return filepath.Join(defaultMountPath, name)
 }
