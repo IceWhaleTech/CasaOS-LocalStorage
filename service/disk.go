@@ -45,7 +45,7 @@ type DiskService interface {
 	MountDisk(path, volume string) (string, error)
 	RemoveLSBLKCache()
 	SmartCTL(path string) model.SmartctlA
-	UmountPointAndRemoveDir(path string) error
+	UmountPointAndRemoveDir(m model.LSBLKModel) error
 	UmountUSB(path string) error
 
 	UpdateMountPointInDB(m model2.Volume) error
@@ -142,25 +142,26 @@ func (d *diskService) FormatDisk(path string) error {
 }
 
 // 移除挂载点,删除目录
-func (d *diskService) UmountPointAndRemoveDir(path string) error {
-	logger.Info("trying to get all partitions of device...", zap.String("path", path))
-	partitions, err := partition.GetPartitions(path)
-	if err != nil {
-		logger.Error("error when getting all partitions of device", zap.Error(err), zap.String("path", path))
-		return err
+func (d *diskService) UmountPointAndRemoveDir(m model.LSBLKModel) error {
+	if len(m.MountPoint) > 0 {
+		if err := mount.UmountByMountPoint(m.MountPoint); err != nil {
+			logger.Error("error when umounting partition", zap.Error(err), zap.String("path", m.Path), zap.String("mount point", m.MountPoint))
+			return err
+		}
+		if err := file.RMDir(m.MountPoint); err != nil {
+			logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", m.Path), zap.String("mount point", m.MountPoint))
+			return err
+		}
 	}
+	for _, p := range m.Children {
+		if len(p.MountPoint) > 0 {
 
-	for _, p := range partitions {
-		if p.LSBLKProperties["MOUNTPOINT"] != "" {
-			logger.Info("trying to umount partition...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
-			if err := mount.UmountByMountPoint(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
-				logger.Error("error when umounting partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := mount.UmountByMountPoint(p.MountPoint); err != nil {
+				logger.Error("error when umounting partition", zap.Error(err), zap.String("path", p.Path), zap.String("mount point", p.MountPoint))
 				return err
 			}
-
-			logger.Info("trying to remove mount point directory...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
-			if err := file.RMDir(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
-				logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := file.RMDir(p.MountPoint); err != nil {
+				logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", p.Path), zap.String("mount point", p.MountPoint))
 				return err
 			}
 		}
@@ -368,7 +369,8 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		return out, err
 	}
 
-	return "", partition.ProbePartition(path)
+	// return "", partition.ProbePartition(path)
+	return "", nil
 }
 
 func (d *diskService) SaveMountPointToDB(m model2.Volume) error {
@@ -421,9 +423,9 @@ func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
 	}
 
 	var existingVolumes []model2.Volume
-
-	result := d.db.Where(&model2.Volume{UUID: partitions[0].PARTXProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
-
+	logger.Info("trying to delete volume by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint), zap.Any("uuid", partitions[0].LSBLKProperties[`UUID`]), zap.Any("partitons", partitions))
+	result := d.db.Where(&model2.Volume{UUID: partitions[0].LSBLKProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+	logger.Info("result", zap.Any("result", result))
 	if result.Error != nil {
 		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
 	}
@@ -582,9 +584,11 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 }
 
 func (d *diskService) InitCheck() {
+	time.Sleep(time.Second * 5)
+	var fileName string = "local-storage.json"
 	diskMap := make(map[string]model.LSBLKModel)
 	diskMapNew := make(map[string]model.LSBLKModel)
-	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, "disk.temp")
+	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, fileName)
 	if file.Exists(diskTempFilePath) {
 		tempData := file.ReadFullFile(diskTempFilePath)
 		err := json.Unmarshal(tempData, &diskMap)
@@ -603,10 +607,9 @@ func (d *diskService) InitCheck() {
 					Name:       "local-storage:disk:added",
 					Properties: properties,
 				}
-
 				// add UI properties to applicable events so that CasaOS UI can render it
 				event := common.EventAdapterWithUIProperties(&eventModel)
-				time.Sleep(time.Second * 5)
+				logger.Info("disk added", zap.Any("eventModel", eventModel))
 				response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
 				if err != nil {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
@@ -622,15 +625,15 @@ func (d *diskService) InitCheck() {
 	}
 	for k, v := range diskMap {
 		if _, ok := diskMapNew[k]; !ok {
+			logger.Info("disk removed", zap.Any("disk", v))
 			properties := common.AdditionalProperties(v)
 			eventModel := message_bus.Event{
 				SourceID:   "local-storage",
 				Name:       "local-storage:disk:removed",
 				Properties: properties,
 			}
-			// add UI properties to applicable events so that CasaOS UI can render it
 			event := common.EventAdapterWithUIProperties(&eventModel)
-			time.Sleep(time.Second * 5)
+			logger.Info("InitCheck disk removed", zap.Any("eventModel", eventModel))
 			response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
 			if err != nil {
 				logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
@@ -645,7 +648,7 @@ func (d *diskService) InitCheck() {
 	if err != nil {
 		return
 	}
-	file.WriteToPath(data, config.AppInfo.DBPath, "disk.temp")
+	file.WriteToPath(data, config.AppInfo.DBPath, fileName)
 
 }
 

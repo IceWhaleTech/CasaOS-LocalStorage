@@ -101,6 +101,7 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 	properties["serial"] = v.Serial
 	properties["uuid"] = v.UUID
 	properties["children:num"] = strconv.Itoa(len(v.Children))
+	properties["tran"] = v.Tran
 	mountPoint := []string{}
 	var avail int64 = 0
 	for i := 0; i < len(v.Children); i++ {
@@ -115,7 +116,6 @@ func AdditionalProperties(v model.LSBLKModel) map[string]string {
 		properties["children:"+strconv.Itoa(i)+":avail"] = string(v.Children[i].FSAvail)
 	}
 	properties["avail"] = strconv.FormatInt(avail, 10)
-
 
 	properties["mount_point"] = strings.Join(mountPoint, ",")
 

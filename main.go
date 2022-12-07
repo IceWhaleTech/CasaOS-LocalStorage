@@ -70,7 +70,6 @@ func init() {
 
 	service.MyService = service.NewService(sqliteDB)
 	service.Cache = cache.Init()
-	service.MyService.Disk().InitCheck()
 
 	service.MyService.Disk().CheckSerialDiskMount()
 
@@ -238,7 +237,7 @@ func main() {
 			}
 		}
 	}
-
+	service.MyService.Disk().InitCheck()
 	v1Router := route.InitV1Router()
 	v2Router := route.InitV2Router()
 	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
