@@ -423,9 +423,9 @@ func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
 	}
 
 	var existingVolumes []model2.Volume
-
-	result := d.db.Where(&model2.Volume{UUID: partitions[0].PARTXProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
-
+	logger.Info("trying to delete volume by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint), zap.Any("uuid", partitions[0].LSBLKProperties[`UUID`]), zap.Any("partitons", partitions))
+	result := d.db.Where(&model2.Volume{UUID: partitions[0].LSBLKProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+	logger.Info("result", zap.Any("result", result))
 	if result.Error != nil {
 		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
 	}
@@ -584,10 +584,11 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 }
 
 func (d *diskService) InitCheck() {
-
+	time.Sleep(time.Second * 5)
+	var fileName string = "local-storage.json"
 	diskMap := make(map[string]model.LSBLKModel)
 	diskMapNew := make(map[string]model.LSBLKModel)
-	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, "disk.temp")
+	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, fileName)
 	if file.Exists(diskTempFilePath) {
 		tempData := file.ReadFullFile(diskTempFilePath)
 		err := json.Unmarshal(tempData, &diskMap)
@@ -608,6 +609,7 @@ func (d *diskService) InitCheck() {
 				}
 				// add UI properties to applicable events so that CasaOS UI can render it
 				event := common.EventAdapterWithUIProperties(&eventModel)
+				logger.Info("disk added", zap.Any("eventModel", eventModel))
 				response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
 				if err != nil {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
@@ -623,14 +625,15 @@ func (d *diskService) InitCheck() {
 	}
 	for k, v := range diskMap {
 		if _, ok := diskMapNew[k]; !ok {
+			logger.Info("disk removed", zap.Any("disk", v))
 			properties := common.AdditionalProperties(v)
 			eventModel := message_bus.Event{
 				SourceID:   "local-storage",
 				Name:       "local-storage:disk:removed",
 				Properties: properties,
 			}
-			// add UI properties to applicable events so that CasaOS UI can render it
 			event := common.EventAdapterWithUIProperties(&eventModel)
+			logger.Info("InitCheck disk removed", zap.Any("eventModel", eventModel))
 			response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
 			if err != nil {
 				logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
@@ -645,7 +648,7 @@ func (d *diskService) InitCheck() {
 	if err != nil {
 		return
 	}
-	file.WriteToPath(data, config.AppInfo.DBPath, "disk.temp")
+	file.WriteToPath(data, config.AppInfo.DBPath, fileName)
 
 }
 

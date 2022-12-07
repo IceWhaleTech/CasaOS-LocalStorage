@@ -1,6 +1,10 @@
 package model
 
-import "path/filepath"
+import (
+	"path/filepath"
+
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+)
 
 const defaultMountPath = "/mnt"
 
@@ -13,5 +17,12 @@ func (m *LSBLKModel) GetMountPoint(name string) string {
 		name += "_" + m.Label
 	}
 
-	return filepath.Join(defaultMountPath, name)
+	if m.Model != "" {
+		name += "_" + m.Model
+	}
+	mountPoint := filepath.Join(defaultMountPath, name)
+	if file.CheckNotExist(mountPoint) {
+		return mountPoint
+	}
+	return mountPoint + "_" + m.Name
 }
