@@ -36,6 +36,7 @@ func GetStorageList(c *gin.Context) {
 	foundSystem := false
 
 	storages := []model1.Storages{}
+	df, err := service.MyService.Disk().GetSystemDf()
 
 	for _, currentDisk := range blkList {
 		if currentDisk.Tran == "usb" {
@@ -57,9 +58,13 @@ func GetStorageList(c *gin.Context) {
 		}
 
 		for _, blkChild := range currentDisk.Children {
-
-			if blkChild.MountPoint == "" {
-				continue
+			if err == nil {
+				if blkChild.Path == df.FileSystem {
+					tempDisk.DiskName = "System"
+					foundSystem = true
+					tempSystemDisk = true
+					logger.Info("found system disk", zap.String("disk", blkChild.Path))
+				}
 			}
 
 			if !foundSystem {
@@ -116,7 +121,9 @@ func GetStorageList(c *gin.Context) {
 				}
 			}
 			tempDisk.Children = tempStorageArr
+			logger.Info("system disk", zap.Any("disk", tempDisk))
 			storages = append(storages, tempDisk)
+			logger.Info("system disk", zap.Any("storages", storages))
 		} else if !tempSystemDisk {
 			tempDisk.Children = storageArr
 			storages = append(storages, tempDisk)

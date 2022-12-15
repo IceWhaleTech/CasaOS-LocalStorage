@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -16,6 +18,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
@@ -26,14 +29,18 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
+
 	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type DiskService interface {
+	EnsureDefaultMergePoint() bool
 	AddPartition(path string) error
 	DeletePartition(path string) error
 	CheckSerialDiskMount()
@@ -53,6 +60,7 @@ type DiskService interface {
 	GetSerialAllFromDB() ([]model2.Volume, error)
 	SaveMountPointToDB(m model2.Volume) error
 	InitCheck()
+	GetSystemDf() (model.DFDiskSpace, error)
 }
 
 type diskService struct {
@@ -70,6 +78,48 @@ var (
 	json2                  = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
+func (d *diskService) EnsureDefaultMergePoint() bool {
+	mountPoint := "/DATA"
+	sourceBasePath := constants.DefaultFilePath
+
+	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
+
+	existingMerges, err := MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
+	if err != nil {
+		panic(err)
+	}
+
+	// check if /DATA is already a merge point
+	if len(existingMerges) > 0 {
+		if len(existingMerges) > 1 {
+			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
+		}
+		return true
+	}
+
+	merge := &model2.Merge{
+		FSType:         fs.MergerFSFullName,
+		MountPoint:     mountPoint,
+		SourceBasePath: &sourceBasePath,
+	}
+
+	if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
+		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
+			logger.Info(err.Error(), zap.String("mount point", mountPoint))
+		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+			return false
+		} else {
+			panic(err)
+		}
+	}
+
+	if err := MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
+		panic(err)
+	}
+
+	return true
+}
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
 	Cache.Delete(key)
@@ -650,6 +700,47 @@ func (d *diskService) InitCheck() {
 	}
 	file.WriteToPath(data, config.AppInfo.DBPath, fileName)
 
+}
+
+func (d *diskService) GetSystemDf() (model.DFDiskSpace, error) {
+	out, err := exec.Command("df", "-kPT").Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	outputStr := string(out)
+	// 按行分割字符串
+	lines := strings.Split(outputStr, "\n")
+	// 忽略第一行（标题行）
+	lines = lines[1:]
+	// 遍历每一行，解析文件信息
+	for _, line := range lines {
+		// 分割行，获取各个字段
+		fields := strings.Fields(line)
+		// 如果行为空，则跳过
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) == 7 && fields[6] == "/" {
+			m := model.DFDiskSpace{
+				FileSystem: fields[0],
+				Type:       fields[1],
+
+				UsePercent: fields[5],
+				MountedOn:  fields[6],
+			}
+			b, _ := strconv.ParseInt(fields[2], 10, 64)
+			u, _ := strconv.ParseInt(fields[3], 10, 64)
+			a, _ := strconv.ParseInt(fields[4], 10, 64)
+			m.Blocks = strconv.FormatInt(b*1024, 10)
+			m.Used = strconv.FormatInt(u*1024, 10)
+			m.Available = strconv.FormatInt(a*1024, 10)
+			return m, nil
+		} else {
+			continue
+		}
+	}
+	return model.DFDiskSpace{}, errors.New("not found")
 }
 
 func NewDiskService(db *gorm.DB) DiskService {
