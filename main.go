@@ -32,6 +32,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron/v3"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -230,13 +231,17 @@ func main() {
 	}
 
 	// register at message bus
-	for _, eventTypesByAction := range common.EventTypes {
-		for _, eventType := range eventTypesByAction {
-			if _, err := service.MyService.MessageBus().RegisterEventTypeWithResponse(ctx, eventType); err != nil {
-				logger.Error("error when trying to register event type - the event type will not be discoverable by subscribers", zap.Error(err), zap.Any("event type", eventType))
-			}
+	for devtype, eventTypesByAction := range common.EventTypes {
+		response, err := service.MyService.MessageBus().RegisterEventTypesWithResponse(ctx, lo.Values(eventTypesByAction))
+		if err != nil {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.Error(err), zap.String("devtype", devtype))
+		}
+
+		if response != nil && response.StatusCode() != http.StatusOK {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.String("status", response.Status()), zap.String("body", string(response.Body)), zap.String("devtype", devtype))
 		}
 	}
+
 	service.MyService.Disk().InitCheck()
 	v1Router := route.InitV1Router()
 	v2Router := route.InitV2Router()
