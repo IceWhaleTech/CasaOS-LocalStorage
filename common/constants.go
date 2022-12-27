@@ -1,6 +1,6 @@
 package common
 
 const (
-	Version     = "0.3.8"
+	Version     = "0.4.0"
 	ServiceName = "local-storage"
 )

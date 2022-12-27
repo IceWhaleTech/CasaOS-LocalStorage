@@ -1,8 +1,10 @@
-//go:generate bash -c "mkdir -p codegen && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.2 -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go"
+//go:generate bash -c "mkdir -p codegen && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.4 -generate types,server,spec -package codegen api/local_storage/openapi.yaml > codegen/local_storage_api.go"
+//go:generate bash -c "mkdir -p codegen/message_bus && go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.4 -generate types,client -package message_bus https://raw.githubusercontent.com/IceWhaleTech/CasaOS-MessageBus/main/api/message_bus/openapi.yaml > codegen/message_bus/api.go"
 
 package main
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"flag"
@@ -30,6 +32,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron/v3"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -67,7 +70,6 @@ func init() {
 	sqliteDB := sqlite.GetGlobalDB(*dbFlag)
 
 	service.MyService = service.NewService(sqliteDB)
-
 	service.Cache = cache.Init()
 
 	service.MyService.Disk().CheckSerialDiskMount()
@@ -189,7 +191,10 @@ func ensureDefaultMergePoint() bool {
 }
 
 func main() {
-	go monitorUSB()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go monitorUEvent(ctx)
 
 	sendStorageStats()
 
@@ -199,7 +204,6 @@ func main() {
 	}
 
 	crontab.Start()
-
 	defer crontab.Stop()
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(localhost, "0"))
@@ -207,6 +211,7 @@ func main() {
 		panic(err)
 	}
 
+	// register at gateway
 	apiPaths := []string{
 		"/v1/usb",
 		"/v1/disks",
@@ -225,6 +230,19 @@ func main() {
 		}
 	}
 
+	// register at message bus
+	for devtype, eventTypesByAction := range common.EventTypes {
+		response, err := service.MyService.MessageBus().RegisterEventTypesWithResponse(ctx, lo.Values(eventTypesByAction))
+		if err != nil {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.Error(err), zap.String("devtype", devtype))
+		}
+
+		if response != nil && response.StatusCode() != http.StatusOK {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.String("status", response.Status()), zap.String("body", string(response.Body)), zap.String("devtype", devtype))
+		}
+	}
+
+	service.MyService.Disk().InitCheck()
 	v1Router := route.InitV1Router()
 	v2Router := route.InitV2Router()
 	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)

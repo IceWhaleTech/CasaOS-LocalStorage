@@ -55,12 +55,6 @@ AddPartition() {
   partprobe $1
 }
 
-#获取磁盘状态
-#param 磁盘路径
-GetDiskHealthState() {
-  smartctl -H $1 | grep "SMART Health Status" | awk -F ":" '{print$2}'
-}
-
 #磁盘类型
 GetDiskType() {
   fdisk $1 -l | grep Disklabel | awk -F: '{print $2}'

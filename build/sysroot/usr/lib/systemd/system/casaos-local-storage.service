@@ -1,4 +1,7 @@
 [Unit]
+After=casaos-gateway.service
+After=casaos-message-bus.service
+After=casaos-user-service.service
 After=casaos.service
 Before=docker.service
 ConditionFileNotEmpty=/etc/casaos/local-storage.conf

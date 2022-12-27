@@ -1,10 +1,14 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -14,6 +18,8 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/fstab"
@@ -39,13 +45,14 @@ type DiskService interface {
 	MountDisk(path, volume string) (string, error)
 	RemoveLSBLKCache()
 	SmartCTL(path string) model.SmartctlA
-	UmountPointAndRemoveDir(path string) error
+	UmountPointAndRemoveDir(m model.LSBLKModel) error
 	UmountUSB(path string) error
 
 	UpdateMountPointInDB(m model2.Volume) error
 	DeleteMountPointFromDB(path, mountPoint string) error
 	GetSerialAllFromDB() ([]model2.Volume, error)
 	SaveMountPointToDB(m model2.Volume) error
+	InitCheck()
 }
 
 type diskService struct {
@@ -135,25 +142,26 @@ func (d *diskService) FormatDisk(path string) error {
 }
 
 // 移除挂载点,删除目录
-func (d *diskService) UmountPointAndRemoveDir(path string) error {
-	logger.Info("trying to get all partitions of device...", zap.String("path", path))
-	partitions, err := partition.GetPartitions(path)
-	if err != nil {
-		logger.Error("error when getting all partitions of device", zap.Error(err), zap.String("path", path))
-		return err
+func (d *diskService) UmountPointAndRemoveDir(m model.LSBLKModel) error {
+	if len(m.MountPoint) > 0 {
+		if err := mount.UmountByMountPoint(m.MountPoint); err != nil {
+			logger.Error("error when umounting partition", zap.Error(err), zap.String("path", m.Path), zap.String("mount point", m.MountPoint))
+			return err
+		}
+		if err := file.RMDir(m.MountPoint); err != nil {
+			logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", m.Path), zap.String("mount point", m.MountPoint))
+			return err
+		}
 	}
+	for _, p := range m.Children {
+		if len(p.MountPoint) > 0 {
 
-	for _, p := range partitions {
-		if p.LSBLKProperties["MOUNTPOINT"] != "" {
-			logger.Info("trying to umount partition...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
-			if err := mount.UmountByMountPoint(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
-				logger.Error("error when umounting partition", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := mount.UmountByMountPoint(p.MountPoint); err != nil {
+				logger.Error("error when umounting partition", zap.Error(err), zap.String("path", p.Path), zap.String("mount point", p.MountPoint))
 				return err
 			}
-
-			logger.Info("trying to remove mount point directory...", zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
-			if err := file.RMDir(p.LSBLKProperties["MOUNTPOINT"]); err != nil {
-				logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", p.LSBLKProperties["PATH"]), zap.String("mount point", p.LSBLKProperties["MOUNTPOINT"]))
+			if err := file.RMDir(p.MountPoint); err != nil {
+				logger.Error("error when removing mount point directory", zap.Error(err), zap.String("path", p.Path), zap.String("mount point", p.MountPoint))
 				return err
 			}
 		}
@@ -261,8 +269,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 
 	var fsused uint64
 
-	health := true
-
 	result := make([]model.LSBLKModel, 0)
 
 	for _, blk := range blkList {
@@ -274,28 +280,27 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 		fsused = 0
 
 		var blkChildren []model.LSBLKModel
+		smart := MyService.Disk().SmartCTL(blk.Path)
 		for _, child := range blk.Children {
 			if child.RM {
-				output, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;GetDiskHealthState " + child.Path)
-				if err != nil {
-					logger.Error("Failed to exec shell", zap.Error(err))
-					return nil
-				}
 
-				child.Health = strings.TrimSpace(output)
-				if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
-					health = false
-				}
+				// if strings.ToLower(strings.TrimSpace(child.State)) != "ok" {
+				// 	health = false
+				// }
 				f, _ := strconv.ParseUint(child.FSUsed.String(), 10, 64)
 				fsused += f
-			} else {
-				health = false
 			}
 			blkChildren = append(blkChildren, child)
 		}
-
-		if health {
+		if smart.SmartStatus.Passed {
 			blk.Health = "OK"
+		} else {
+			for _, v := range smart.Smartctl.Messages {
+				if strings.Contains(v.String, "STANDBY") {
+					blk.Health = "OK"
+					break
+				}
+			}
 		}
 
 		blk.FSUsed = json.Number(fmt.Sprintf("%d", fsused))
@@ -307,7 +312,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 			}
 		}
 		result = append(result, blk)
-		health = true
 	}
 
 	if len(result) > 0 {
@@ -318,7 +322,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 }
 
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
-	logger.Info("trying to get disk info...", zap.String("path", path))
 
 	str := command.ExecLSBLKByPath(path)
 	if str == nil {
@@ -366,7 +369,8 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		return out, err
 	}
 
-	return "", partition.ProbePartition(path)
+	// return "", partition.ProbePartition(path)
+	return "", nil
 }
 
 func (d *diskService) SaveMountPointToDB(m model2.Volume) error {
@@ -419,9 +423,9 @@ func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
 	}
 
 	var existingVolumes []model2.Volume
-
-	result := d.db.Where(&model2.Volume{UUID: partitions[0].PARTXProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
-
+	logger.Info("trying to delete volume by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint), zap.Any("uuid", partitions[0].LSBLKProperties[`UUID`]), zap.Any("partitons", partitions))
+	result := d.db.Where(&model2.Volume{UUID: partitions[0].LSBLKProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+	logger.Info("result", zap.Any("result", result))
 	if result.Error != nil {
 		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))
 	}
@@ -514,15 +518,19 @@ func (d *diskService) CheckSerialDiskMount() {
 			// mount point check
 			mountPoint := m
 			if !file.CheckNotExist(m) {
-				i := 1
-				for {
-					mountPoint = m + "-" + strconv.Itoa(i)
-					if file.CheckNotExist(mountPoint) {
-						break
+				dir, _ := ioutil.ReadDir(m)
+				if len(dir) > 0 {
+					i := 1
+					for {
+						mountPoint = m + "-" + strconv.Itoa(i)
+						if file.CheckNotExist(mountPoint) {
+							break
+						}
+						i++
 					}
-					i++
+					logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
 				}
-				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
+
 			}
 
 			if output, err := d.MountDisk(blkChild.Path, mountPoint); err != nil {
@@ -573,6 +581,75 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 		}
 	}
 	return statusList
+}
+
+func (d *diskService) InitCheck() {
+	time.Sleep(time.Second * 5)
+	var fileName string = "local-storage.json"
+	diskMap := make(map[string]model.LSBLKModel)
+	diskMapNew := make(map[string]model.LSBLKModel)
+	diskTempFilePath := filepath.Join(config.AppInfo.DBPath, fileName)
+	if file.Exists(diskTempFilePath) {
+		tempData := file.ReadFullFile(diskTempFilePath)
+		err := json.Unmarshal(tempData, &diskMap)
+		if err != nil {
+			os.Remove(diskTempFilePath)
+		}
+	}
+
+	diskList := MyService.Disk().LSBLK(false)
+	for _, v := range diskList {
+		if IsDiskSupported(v) {
+			if _, ok := diskMap[v.Serial]; !ok {
+				properties := common.AdditionalProperties(v)
+				eventModel := message_bus.Event{
+					SourceID:   "local-storage",
+					Name:       "local-storage:disk:added",
+					Properties: properties,
+				}
+				// add UI properties to applicable events so that CasaOS UI can render it
+				event := common.EventAdapterWithUIProperties(&eventModel)
+				logger.Info("disk added", zap.Any("eventModel", eventModel))
+				response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
+				if err != nil {
+					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+				}
+
+				if response.StatusCode() != http.StatusOK {
+					logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+				}
+
+			}
+			diskMapNew[v.Serial] = v
+		}
+	}
+	for k, v := range diskMap {
+		if _, ok := diskMapNew[k]; !ok {
+			logger.Info("disk removed", zap.Any("disk", v))
+			properties := common.AdditionalProperties(v)
+			eventModel := message_bus.Event{
+				SourceID:   "local-storage",
+				Name:       "local-storage:disk:removed",
+				Properties: properties,
+			}
+			event := common.EventAdapterWithUIProperties(&eventModel)
+			logger.Info("InitCheck disk removed", zap.Any("eventModel", eventModel))
+			response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
+			if err != nil {
+				logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+			}
+
+			if response.StatusCode() != http.StatusOK {
+				logger.Error("failed to publish event to message bus", zap.String("status", response.Status()), zap.Any("response", response))
+			}
+		}
+	}
+	data, err := json.Marshal(diskMapNew)
+	if err != nil {
+		return
+	}
+	file.WriteToPath(data, config.AppInfo.DBPath, fileName)
+
 }
 
 func NewDiskService(db *gorm.DB) DiskService {
