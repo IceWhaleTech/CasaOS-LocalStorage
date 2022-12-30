@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	_ "embed"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
-	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
@@ -25,11 +23,9 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/merge"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
-	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/robfig/cron/v3"
 	"github.com/samber/lo"
@@ -81,14 +77,14 @@ func init() {
 	service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		if !isMergerFSInstalled() {
+		if !merge.IsMergerFSInstalled() {
 			config.ServerInfo.EnableMergerFS = "false"
 			logger.Info("mergerfs is disabled")
 		}
 	}
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		if !ensureDefaultMergePoint() {
+		if !service.MyService.Disk().EnsureDefaultMergePoint() {
 			config.ServerInfo.EnableMergerFS = "false"
 			logger.Info("mergerfs is disabled")
 		}
@@ -135,65 +131,6 @@ func ensureDefaultDirectories() {
 			logger.Error("ensureDefaultDirectories", zap.Error(err))
 		}
 	}
-}
-
-func isMergerFSInstalled() bool {
-	paths := []string{
-		"/sbin/mount.mergerfs", "/usr/sbin/mount.mergerfs", "/usr/local/sbin/mount.mergerfs",
-		"/bin/mount.mergerfs", "/usr/bin/mount.mergerfs", "/usr/local/bin/mount.mergerfs",
-	}
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			logger.Info("mergerfs is installed", zap.String("path", path))
-			return true
-		}
-	}
-
-	logger.Error("mergerfs is not installed at any path", zap.String("paths", strings.Join(paths, ", ")))
-	return false
-}
-
-func ensureDefaultMergePoint() bool {
-	mountPoint := "/DATA"
-	sourceBasePath := constants.DefaultFilePath
-
-	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
-
-	existingMerges, err := service.MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
-	if err != nil {
-		panic(err)
-	}
-
-	// check if /DATA is already a merge point
-	if len(existingMerges) > 0 {
-		if len(existingMerges) > 1 {
-			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
-		}
-		return true
-	}
-
-	merge := &model2.Merge{
-		FSType:         fs.MergerFSFullName,
-		MountPoint:     mountPoint,
-		SourceBasePath: &sourceBasePath,
-	}
-
-	if err := service.MyService.LocalStorage().CreateMerge(merge); err != nil {
-		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
-			logger.Info(err.Error(), zap.String("mount point", mountPoint))
-		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
-			return false
-		} else {
-			panic(err)
-		}
-	}
-
-	if err := service.MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
-		panic(err)
-	}
-
-	return true
 }
 
 func main() {

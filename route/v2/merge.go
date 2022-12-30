@@ -4,8 +4,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/merge"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
@@ -38,7 +42,26 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
+
+		file.MoveFile("/DATA", constants.DefaultFilePath)
+		file.RMDir("/DATA")
+
+		if !merge.IsMergerFSInstalled() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+
+		if !service.MyService.Disk().EnsureDefaultMergePoint() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+
+		service.MyService.LocalStorage().CheckMergeMount()
+
+		config.Cfg.Section("server").Key("EnableMergerFS").SetValue("true")
+		config.ServerInfo.EnableMergerFS = "true"
+
+		config.Cfg.SaveTo(config.LocalStorageConfigFilePath)
 	}
 
 	var m codegen.Merge
