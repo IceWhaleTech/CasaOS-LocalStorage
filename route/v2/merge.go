@@ -49,15 +49,20 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 
 		file.MoveFile("/DATA", constants.DefaultFilePath)
 		file.RMDir("/DATA")
+		file.MkDir("/DATA")
 
 		if !merge.IsMergerFSInstalled() {
 			config.ServerInfo.EnableMergerFS = "false"
-			logger.Info("mergerfs is disabled")
+			message := "mergerfs is not installed"
+			logger.Info(message)
+			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 		}
 
 		if !service.MyService.Disk().EnsureDefaultMergePoint() {
 			config.ServerInfo.EnableMergerFS = "false"
+			message := "default merge point is not empty"
 			logger.Info("mergerfs is disabled")
+			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 		}
 
 		service.MyService.LocalStorage().CheckMergeMount()
