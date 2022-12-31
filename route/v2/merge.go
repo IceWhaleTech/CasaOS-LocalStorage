@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
@@ -45,10 +44,16 @@ func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParam
 }
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
+	var m codegen.Merge
+	if err := ctx.Bind(&m); err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+	}
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
 
-		file.MoveFile("/DATA", constants.DefaultFilePath)
-		file.RMDir("/DATA")
+		// /DATA目录移动失败的可能
+		//file.MkDir("/DATA", constants.DefaultFilePath)
+		file.RMDir(m.MountPoint)
 		file.MkDir("/DATA")
 
 		if !merge.IsMergerFSInstalled() {
@@ -71,12 +76,6 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		config.ServerInfo.EnableMergerFS = "true"
 
 		config.Cfg.SaveTo(config.LocalStorageConfigFilePath)
-	}
-
-	var m codegen.Merge
-	if err := ctx.Bind(&m); err != nil {
-		message := err.Error()
-		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 	}
 
 	// default to mergerfs if fstype is not specified
