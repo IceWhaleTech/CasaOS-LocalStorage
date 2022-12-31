@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
+	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
-	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/merge"
@@ -48,34 +50,6 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	if err := ctx.Bind(&m); err != nil {
 		message := err.Error()
 		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
-	}
-	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-
-		// /DATA目录移动失败的可能
-		//file.MkDir("/DATA", constants.DefaultFilePath)
-		file.RMDir(m.MountPoint)
-		file.MkDir("/DATA")
-
-		if !merge.IsMergerFSInstalled() {
-			config.ServerInfo.EnableMergerFS = "false"
-			message := "mergerfs is not installed"
-			logger.Info(message)
-			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
-		}
-
-		if !service.MyService.Disk().EnsureDefaultMergePoint() {
-			config.ServerInfo.EnableMergerFS = "false"
-			message := "default merge point is not empty"
-			logger.Info("mergerfs is disabled")
-			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
-		}
-
-		service.MyService.LocalStorage().CheckMergeMount()
-
-		config.Cfg.Section("server").Key("EnableMergerFS").SetValue("true")
-		config.ServerInfo.EnableMergerFS = "true"
-
-		config.Cfg.SaveTo(config.LocalStorageConfigFilePath)
 	}
 
 	// default to mergerfs if fstype is not specified
@@ -159,6 +133,68 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, codegen.SetMergeResponseOK{
 		Data: &result,
 	})
+}
+func (s *LocalStorage) GetMergeInitStatus(ctx echo.Context) error {
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		status := codegen.Uninitialized
+		return ctx.JSON(http.StatusOK, codegen.GetMergeInitStatusResponseOK{Data: &status})
+	} else {
+		status := codegen.Initialized
+		return ctx.JSON(http.StatusOK, codegen.GetMergeInitStatusResponseOK{Data: &status})
+	}
+}
+func (s *LocalStorage) InitMerge(ctx echo.Context) error {
+	var m codegen.MountPoint
+	if err := ctx.Bind(&m); err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+	}
+
+	if m.MountPoint == "" {
+		message := "mount point is empty"
+		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+	}
+
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		if !file.CheckNotExist(m.MountPoint) {
+			err := os.Rename(m.MountPoint, constants.DefaultFilePath)
+			if err != nil {
+				fmt.Println(err)
+				message := "move " + m.MountPoint + " to /var/lib/casaos/files failed"
+				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+			}
+		}
+		err := file.MkDir(m.MountPoint)
+		if err != nil {
+			fmt.Println(err)
+			message := "create " + m.MountPoint + " failed"
+			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+		}
+
+		if !merge.IsMergerFSInstalled() {
+			config.ServerInfo.EnableMergerFS = "false"
+			message := "mergerfs is not installed"
+			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+		}
+
+		if !service.MyService.Disk().EnsureDefaultMergePoint() {
+			config.ServerInfo.EnableMergerFS = "false"
+			message := "default merge point is not empty"
+			return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+		}
+
+		service.MyService.LocalStorage().CheckMergeMount()
+
+		config.Cfg.Section("server").Key("EnableMergerFS").SetValue("true")
+		config.ServerInfo.EnableMergerFS = "true"
+
+		config.Cfg.SaveTo(config.LocalStorageConfigFilePath)
+	} else {
+		status := codegen.Initialized
+		return ctx.JSON(http.StatusOK, codegen.InitMergeResponseOK{Data: &status})
+	}
+	status := codegen.Initialized
+	return ctx.JSON(http.StatusOK, codegen.InitMergeResponseOK{Data: &status})
 }
 
 func MergeAdapterOut(m model2.Merge) codegen.Merge {

@@ -91,7 +91,37 @@ paths:
           $ref: "#/components/responses/SetMergeResponseOK"
         "503":
           $ref: "#/components/responses/ResponseServiceUnavailable"
-
+  /merge/init:
+    get:
+      summary: Get merge initialization status
+      description: |-
+        (TODO)
+      operationId: getMergeInitStatus
+      tags:
+        - Merge methods
+      responses:
+        "200":
+          $ref: "#/components/responses/GetMergeInitStatusResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
+    post:
+      summary: Initialize a merge
+      description: |-
+        (TODO)
+      operationId: initMerge
+      tags:
+        - Merge methods
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MountPoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/InitMergeResponseOK"
+        "503":
+          $ref: "#/components/responses/ResponseServiceUnavailable"
   /mount:
     get:
       summary: Get mounted volumes
@@ -253,7 +283,30 @@ components:
                 properties:
                   data:
                     $ref: "#/components/schemas/Merge"
-
+    GetMergeInitStatusResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MergeStatus"
+    InitMergeResponseOK:
+      description: OK
+      content:
+        application/json:
+          schema:
+            readOnly: true
+            allOf:
+              - $ref: "#/components/schemas/BaseResponse"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/MergeStatus"
     GetMountsResponseOK:
       description: OK
       content:
@@ -367,7 +420,22 @@ components:
           description: message returned by server side if there is any
           type: string
           example: ""
-
+    MountPoint:
+      type: object
+      required:
+        - mount_point
+      properties:
+        mount_point:
+          type: string
+          example: "/DATA"
+    MergeStatus:
+      type: string
+      enum:
+        - "initialized"
+        - "uninitialized"
+        - "error"
+      default: "initialized state"
+      example: "initialized"
     Merge:
       type: object
       required:
