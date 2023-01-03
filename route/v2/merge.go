@@ -2,6 +2,7 @@ package v2
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -157,6 +158,15 @@ func (s *LocalStorage) InitMerge(ctx echo.Context) error {
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
 		if !file.CheckNotExist(m.MountPoint) {
+
+			dir, _ := ioutil.ReadDir(constants.DefaultFilePath)
+			if len(dir) > 0 {
+				message := "Please make sure the /var/lib/casaos/files directory is empty"
+				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
+			}
+
+			file.RMDir(constants.DefaultFilePath)
+
 			err := os.Rename(m.MountPoint, constants.DefaultFilePath)
 			if err != nil {
 				fmt.Println(err)
