@@ -22,28 +22,22 @@ import (
 var MessageMergerFSNotEnabled = "mergerfs is not enabled - either it is not enabled in configuration file; merge point is not empty before mounting; or mergerfs is not installed"
 
 func (s *LocalStorage) GetMerges(ctx echo.Context, params codegen.GetMergesParams) error {
-	// if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-	// 	return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
-	// }
-
-	if params.MountPoint != nil {
-
-		merges, err := service.MyService.LocalStorage().GetMerges(params.MountPoint)
-		if err != nil {
-			message := err.Error()
-			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
-		}
-		data := make([]codegen.Merge, 0, len(merges))
-		for _, merge := range merges {
-			data = append(data, MergeAdapterOut(merge))
-		}
-		message := "ok"
-		return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{Data: &data, Message: &message})
-	} else {
-		message := "ok"
-		data := make([]codegen.Merge, 0)
-		return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{Data: &data, Message: &message})
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
+		return ctx.JSON(http.StatusServiceUnavailable, codegen.ResponseServiceUnavailable{Message: &MessageMergerFSNotEnabled})
 	}
+
+	merges, err := service.MyService.LocalStorage().GetMerges(params.MountPoint)
+	if err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
+	}
+	data := make([]codegen.Merge, 0, len(merges))
+	for _, merge := range merges {
+		data = append(data, MergeAdapterOut(merge))
+	}
+	message := "ok"
+	return ctx.JSON(http.StatusOK, codegen.GetMergesResponseOK{Data: &data, Message: &message})
+
 }
 
 func (s *LocalStorage) SetMerge(ctx echo.Context) error {
