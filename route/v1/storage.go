@@ -66,7 +66,9 @@ func GetStorageList(c *gin.Context) {
 					logger.Info("found system disk", zap.String("disk", blkChild.Path))
 				}
 			}
-
+			if blkChild.MountPoint == "" {
+				continue
+			}
 			if !foundSystem {
 				if blkChild.MountPoint == "/" {
 					tempDisk.DiskName = "System"
