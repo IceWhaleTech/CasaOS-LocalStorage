@@ -119,6 +119,7 @@ func monitorUEvent(ctx context.Context) {
 					diskModel := service.MyService.Disk().GetDiskInfo(v)
 					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
 
+
 						properties := common.AdditionalProperties(diskModel)
 						for k, v := range properties {
 							event.Properties[k] = v
