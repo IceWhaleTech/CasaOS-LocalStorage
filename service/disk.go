@@ -567,20 +567,18 @@ func (d *diskService) CheckSerialDiskMount() {
 
 			// mount point check
 			mountPoint := m
-			if !file.CheckNotExist(m) {
-				dir, _ := ioutil.ReadDir(m)
-				if len(dir) > 0 {
-					i := 1
-					for {
-						mountPoint = m + "-" + strconv.Itoa(i)
-						if file.CheckNotExist(mountPoint) {
-							break
-						}
-						i++
+			mount.UmountByMountPoint(m)
+			dir, _ := ioutil.ReadDir(m)
+			if len(dir) > 0 {
+				i := 1
+				for {
+					mountPoint = m + "-" + strconv.Itoa(i)
+					if file.CheckNotExist(mountPoint) {
+						break
 					}
-					logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
+					i++
 				}
-
+				logger.Info("mount point already exists, using new mount point", zap.String("path", blkChild.Path), zap.String("mount point", mountPoint))
 			}
 
 			if output, err := d.MountDisk(blkChild.Path, mountPoint); err != nil {
@@ -659,10 +657,33 @@ func (d *diskService) InitCheck() {
 				}
 				// add UI properties to applicable events so that CasaOS UI can render it
 				event := common.EventAdapterWithUIProperties(&eventModel)
+
+				bk := false
+				for _, k := range v.Children {
+					if k.MountPoint == "/" {
+						bk = true
+						break
+					}
+					for _, s := range k.Children {
+						if s.MountPoint == "/" {
+							bk = true
+							break
+						}
+					}
+					if bk {
+						break
+					}
+				}
+				if bk {
+					continue
+				}
+
 				logger.Info("disk added", zap.Any("eventModel", eventModel))
+
 				response, err := MyService.MessageBus().PublishEventWithResponse(context.Background(), event.SourceID, event.Name, event.Properties)
 				if err != nil {
 					logger.Error("failed to publish event to message bus", zap.Error(err), zap.Any("event", event))
+					continue
 				}
 
 				if response.StatusCode() != http.StatusOK {
