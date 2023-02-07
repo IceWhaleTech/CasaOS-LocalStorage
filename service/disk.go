@@ -562,9 +562,10 @@ func (d *diskService) CheckSerialDiskMount() {
 			if !ok {
 				continue
 			}
-
+			if blkChild.MountPoint == m {
+				continue
+			}
 			logger.Info("trying to re-mount...", zap.String("path", blkChild.Path), zap.String("mount point", m))
-
 			// mount point check
 			mountPoint := m
 			mount.UmountByMountPoint(m)
