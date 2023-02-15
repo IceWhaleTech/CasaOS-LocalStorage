@@ -776,6 +776,7 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		d.Tran == "sas" ||
 		strings.Contains(d.SubSystems, "virtio") ||
 		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
+		strings.Contains(d.SubSystems, "block:mmc:mmc_host:pci") ||
 		(d.Tran == "ata" && d.Type == "disk")
 }
 
