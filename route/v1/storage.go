@@ -276,7 +276,6 @@ func PutFormatStorage(c *gin.Context) {
 		delete(diskMap, path)
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 	}
-	service.MyService.Disk()
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	for diskInfo.UUID == currentDisk.UUID {
 		time.Sleep(1 * time.Second)
