@@ -39,9 +39,9 @@ func GetStorageList(c *gin.Context) {
 	df, err := service.MyService.Disk().GetSystemDf()
 
 	for _, currentDisk := range blkList {
-		if currentDisk.Tran == "usb" {
-			continue
-		}
+		// if currentDisk.Tran == "usb" {
+		// 	continue
+		// }
 
 		tempSystemDisk := false
 		children := 1
@@ -85,7 +85,6 @@ func GetStorageList(c *gin.Context) {
 					}
 				}
 			}
-
 			stor := model1.Storage{
 				UUID:        blkChild.UUID,
 				MountPoint:  blkChild.MountPoint,
@@ -277,9 +276,12 @@ func PutFormatStorage(c *gin.Context) {
 		delete(diskMap, path)
 		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 	}
-
+	service.MyService.Disk()
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
-
+	for diskInfo.UUID == currentDisk.UUID {
+		time.Sleep(1 * time.Second)
+		currentDisk = service.MyService.Disk().GetDiskInfo(path)
+	}
 	if mountPoint == "" {
 		mountPoint = currentDisk.GetMountPoint("")
 	}
