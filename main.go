@@ -19,6 +19,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	util_http "github.com/IceWhaleTech/CasaOS-Common/utils/http"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
@@ -27,6 +28,8 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/coreos/go-systemd/daemon"
+	"github.com/rclone/rclone/cmd/mountlib"
+	"github.com/rclone/rclone/fs/config/configfile"
 	"github.com/robfig/cron/v3"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -97,6 +100,9 @@ func init() {
 	checkToken2_11()
 
 	ensureDefaultDirectories()
+	service.MountLists = make(map[string]*mountlib.MountPoint)
+	configfile.Install()
+	service.MyService.Storage().CheckAndMountAll()
 }
 
 func checkToken2_11() {
@@ -159,6 +165,9 @@ func main() {
 		"/v1/usb",
 		"/v1/disks",
 		"/v1/storage",
+		"/v1/cloud",
+		"/v1/recover",
+		"/v1/driver",
 		route.V2APIPath,
 		route.V2DocPath,
 	}
@@ -173,6 +182,22 @@ func main() {
 		}
 	}
 
+	var events []message_bus.EventType
+	events = append(events, message_bus.EventType{Name: "casaos:file:recover", SourceID: common.ServiceName, PropertyTypeList: []message_bus.PropertyType{}})
+	// register at message bus
+	for i := 0; i < 10; i++ {
+		response, err := service.MyService.MessageBus().RegisterEventTypesWithResponse(context.Background(), events)
+		if err != nil {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.Error(err))
+		}
+		if response != nil && response.StatusCode() != http.StatusOK {
+			logger.Error("error when trying to register one or more event types - some event type will not be discoverable", zap.String("status", response.Status()), zap.String("body", string(response.Body)))
+		}
+		if response.StatusCode() == http.StatusOK {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	// register at message bus
 	for devtype, eventTypesByAction := range common.EventTypes {
 		response, err := service.MyService.MessageBus().RegisterEventTypesWithResponse(ctx, lo.Values(eventTypesByAction))
