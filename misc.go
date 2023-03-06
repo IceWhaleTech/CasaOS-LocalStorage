@@ -68,7 +68,7 @@ func sendDiskBySocket() {
 	message := make(map[string]interface{})
 	message["sys_disk"] = status
 
-	if err := service.MyService.Notify().SendSystemStatusNotify(message); err != nil {
+	if err := service.MyService.NotifySystem().SendSystemStatusNotify(message); err != nil {
 		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
 	}
 }
@@ -78,7 +78,7 @@ func sendUSBBySocket() {
 		"sys_usb": service.MyService.Disk().GetUSBDriveStatusList(),
 	}
 
-	if err := service.MyService.Notify().SendSystemStatusNotify(message); err != nil {
+	if err := service.MyService.NotifySystem().SendSystemStatusNotify(message); err != nil {
 		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
 	}
 }
@@ -118,7 +118,6 @@ func monitorUEvent(ctx context.Context) {
 
 					diskModel := service.MyService.Disk().GetDiskInfo(v)
 					if !reflect.DeepEqual(diskModel, model.LSBLKModel{}) {
-
 
 						properties := common.AdditionalProperties(diskModel)
 						for k, v := range properties {

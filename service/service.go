@@ -19,9 +19,11 @@ type Services interface {
 	USB() USBService
 	LocalStorage() *v2.LocalStorageService
 	Gateway() external.ManagementService
-	Notify() external.NotifyService
+	Notify() NotifyServer
+	NotifySystem() external.NotifyService
 	Shares() external.ShareService
 	MessageBus() *message_bus.ClientWithResponses
+	Storage() StorageService
 }
 
 func NewService(db *gorm.DB) Services {
@@ -30,7 +32,7 @@ func NewService(db *gorm.DB) Services {
 		panic(err)
 	}
 
-	notifyService := external.NewNotifyService(config.CommonInfo.RuntimePath)
+	notifySystem := external.NewNotifyService(config.CommonInfo.RuntimePath)
 	sharesService := external.NewShareService(config.CommonInfo.RuntimePath)
 
 	return &store{
@@ -38,8 +40,10 @@ func NewService(db *gorm.DB) Services {
 		disk:         NewDiskService(db),
 		localStorage: v2.NewLocalStorageService(db, wrapper.NewMountInfo()),
 		gateway:      gatewayManagement,
-		notify:       notifyService,
+		notify:       NewNotifyService(),
+		notifySystem: notifySystem,
 		shares:       sharesService,
+		storage:      NewStorageService(),
 	}
 }
 
@@ -48,8 +52,18 @@ type store struct {
 	disk         DiskService
 	localStorage *v2.LocalStorageService
 	gateway      external.ManagementService
-	notify       external.NotifyService
+	notify       NotifyServer
+	notifySystem external.NotifyService
 	shares       external.ShareService
+	storage      StorageService
+}
+
+func (c *store) NotifySystem() external.NotifyService {
+	return c.notifySystem
+}
+
+func (c *store) Storage() StorageService {
+	return c.storage
 }
 
 func (c *store) Gateway() external.ManagementService {
@@ -68,7 +82,7 @@ func (c *store) LocalStorage() *v2.LocalStorageService {
 	return c.localStorage
 }
 
-func (c *store) Notify() external.NotifyService {
+func (c *store) Notify() NotifyServer {
 	return c.notify
 }
 
