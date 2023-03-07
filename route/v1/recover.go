@@ -101,7 +101,7 @@ func GetRecoverStorage(c *gin.Context) {
 		dmap["mount_point"] = "/mnt/" + username
 		dmap["token"] = `{"access_token":"` + google_drive.AccessToken + `","token_type":"Bearer","refresh_token":"` + google_drive.RefreshToken + `","expiry":"` + currentDate + `T` + currentTime.Add(time.Hour*1).Add(time.Minute*50).Format("15:04:05") + `Z"}`
 		service.MyService.Storage().CreateConfig(dmap, username, "drive")
-		service.MyService.Storage().MountStorage("/mnt/"+username, username+":")
+		service.MyService.Storage().MountStorage("/mnt/"+username, username)
 		notify := make(map[string]interface{})
 		notify["status"] = "success"
 		notify["message"] = "Success"
@@ -196,7 +196,7 @@ func GetRecoverStorage(c *gin.Context) {
 		// 	return
 		// }
 		service.MyService.Storage().CreateConfig(dmap, username, "dropbox")
-		service.MyService.Storage().MountStorage("/mnt/"+username, username+":")
+		service.MyService.Storage().MountStorage("/mnt/"+username, username)
 
 		notify["status"] = "success"
 		notify["message"] = "Success"
