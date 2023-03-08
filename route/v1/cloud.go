@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"os"
 	"strings"
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
@@ -75,5 +76,8 @@ func UmountStorage(c *gin.Context) {
 		return
 	}
 	service.MyService.Storage().DeleteConfigByName(strings.ReplaceAll(mountPoint, "/mnt/", ""))
+	if fs, err := os.ReadDir(mountPoint); err == nil && len(fs) == 0 {
+		os.RemoveAll(mountPoint)
+	}
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: "success"})
 }

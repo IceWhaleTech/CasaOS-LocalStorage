@@ -40,7 +40,6 @@ func InitV1Router() *gin.Engine {
 			v1DisksGroup.GET("/usb", v1.GetDisksUSBList)
 			v1DisksGroup.DELETE("/usb", v1.DeleteDiskUSB)
 			v1DisksGroup.DELETE("", v1.DeleteDisksUmount)
-
 		}
 
 		v1StorageGroup := v1Group.Group("/storage")
