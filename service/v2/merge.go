@@ -10,7 +10,9 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mergerfs"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -203,6 +205,18 @@ func excludeVolumesWithWrongMountPointAndUUID(volumes []*model2.Volume) []*model
 		if err != nil {
 			logger.Error("failed to corresponding device path by volume UUID", zap.Error(err), zap.String("uuid", v.UUID))
 			return false
+		}
+
+		par := command.ExecLSBLKByPath(path)
+		pttype := gjson.GetBytes(par, "blockdevices.0.pttype")
+		if pttype.String() != "gpt" {
+			mountPoint := gjson.GetBytes(par, "blockdevices.0.mountpoint")
+			if mountPoint.String() != v.MountPoint {
+				logger.Error("mount point does not match actual", zap.Any("volume", v), zap.String("actual mount point", mountPoint.String()))
+				return false
+			}
+			return true
+
 		}
 
 		partitions, err := partition.GetPartitions(path)
