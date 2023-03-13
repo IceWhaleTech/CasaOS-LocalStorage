@@ -19,6 +19,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.37.0
 	github.com/sirupsen/logrus v1.9.0
+	github.com/tidwall/gjson v1.14.4
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -140,6 +141,8 @@ require (
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/t3rm1n4l/go-mega v0.0.0-20220725095014-c4e0c2b5debf // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/ugorji/go/codec v1.2.8 // indirect
