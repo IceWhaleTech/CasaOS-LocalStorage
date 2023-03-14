@@ -93,6 +93,7 @@ type Storages struct {
 	Size     uint64    `json:"size"`
 	Path     string    `json:"path"`
 	Children []Storage `json:"children"`
+	Type     string    `json:"type"`
 }
 
 type DiskStatus struct {

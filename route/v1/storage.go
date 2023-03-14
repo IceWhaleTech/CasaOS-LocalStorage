@@ -49,6 +49,7 @@ func GetStorageList(c *gin.Context) {
 			DiskName: currentDisk.Model,
 			Path:     currentDisk.Path,
 			Size:     currentDisk.Size,
+			Type:     currentDisk.Tran,
 		}
 
 		storageArr := []model1.Storage{}
