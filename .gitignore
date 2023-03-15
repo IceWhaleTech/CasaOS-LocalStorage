@@ -19,3 +19,8 @@ dist/
 target/
 codegen/
 __debug_bin
+
+node_modules/
+dist/
+.idea
+.package-lock.json
