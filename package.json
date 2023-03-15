@@ -9,7 +9,7 @@
     "publish": "npm publish --access public",
     "start": "yarn generate:ts && yarn build"
   },
-  "homepage": "https://github.com/IceWhaleTech/CasaOS-AppManagement#readme",
+  "homepage": "https://github.com/IceWhaleTech/CasaOS-LocalStorage#readme",
   "description": "Casaos-Localstorage Typescript+Axios SDK",
   "keywords": [
     "CasaOS-localstorage",
