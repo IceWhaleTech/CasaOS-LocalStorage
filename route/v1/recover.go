@@ -105,6 +105,7 @@ func GetRecoverStorage(c *gin.Context) {
 		notify := make(map[string]interface{})
 		notify["status"] = "success"
 		notify["message"] = "Success"
+		notify["driver"] = "GoogleDrive"
 		fmt.Println(service.MyService.Notify().SendNotify("casaos:file:recover", notify))
 	} else if t == "Dropbox" {
 		add := dropbox.Addition{}
@@ -200,6 +201,7 @@ func GetRecoverStorage(c *gin.Context) {
 
 		notify["status"] = "success"
 		notify["message"] = "Success"
+		notify["driver"] = "Dropbox"
 		fmt.Println(service.MyService.Notify().SendNotify("casaos:file:recover", notify))
 
 	}
