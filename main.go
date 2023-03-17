@@ -28,8 +28,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/coreos/go-systemd/daemon"
-	"github.com/rclone/rclone/cmd/mountlib"
-	"github.com/rclone/rclone/fs/config/configfile"
 	"github.com/robfig/cron/v3"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -100,9 +98,9 @@ func init() {
 	checkToken2_11()
 
 	ensureDefaultDirectories()
-	service.MountLists = make(map[string]*mountlib.MountPoint)
-	configfile.Install()
-	service.MyService.Storage().CheckAndMountAll()
+	// service.MountLists = make(map[string]*mountlib.MountPoint)
+	// configfile.Install()
+	// service.MyService.Storage().CheckAndMountAll()
 }
 
 func checkToken2_11() {
@@ -165,9 +163,9 @@ func main() {
 		"/v1/usb",
 		"/v1/disks",
 		"/v1/storage",
-		"/v1/cloud",
-		"/v1/recover",
-		"/v1/driver",
+		// "/v1/cloud",
+		// "/v1/recover",
+		// "/v1/driver",
 		route.V2APIPath,
 		route.V2DocPath,
 	}
