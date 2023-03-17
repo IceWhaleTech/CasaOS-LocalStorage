@@ -181,7 +181,7 @@ func main() {
 	}
 
 	var events []message_bus.EventType
-	events = append(events, message_bus.EventType{Name: "casaos:file:recover", SourceID: common.ServiceName, PropertyTypeList: []message_bus.PropertyType{}})
+	//events = append(events, message_bus.EventType{Name: "casaos:file:recover", SourceID: common.ServiceName, PropertyTypeList: []message_bus.PropertyType{}})
 	// register at message bus
 	for i := 0; i < 10; i++ {
 		response, err := service.MyService.MessageBus().RegisterEventTypesWithResponse(context.Background(), events)
