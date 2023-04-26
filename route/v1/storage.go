@@ -17,14 +17,12 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
-	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"go.uber.org/zap"
 
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/encryption"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/gin-gonic/gin"
 )
@@ -245,10 +243,10 @@ func PutFormatStorage(c *gin.Context) {
 	}
 
 	// requires password from user to confirm the action
-	if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
-		c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
-		return
-	}
+	// if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
+	// 	c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+	// 	return
+	// }
 
 	path := js["path"]
 	mountPoint := js["volume"]
@@ -313,10 +311,10 @@ func DeleteStorage(c *gin.Context) {
 	}
 
 	// requires password from user to confirm the action
-	if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
-		c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
-		return
-	}
+	// if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
+	// 	c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+	// 	return
+	// }
 
 	path := js["path"]
 	mountPoint := js["volume"]

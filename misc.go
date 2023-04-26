@@ -45,22 +45,34 @@ func sendDiskBySocket() {
 		if !service.IsDiskSupported(currentDisk) {
 			continue
 		}
-
 		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
 		if reflect.DeepEqual(temp, model.SmartctlA{}) {
 			healthy = true
 		} else {
 			healthy = temp.SmartStatus.Passed
 		}
-
-		for _, v := range currentDisk.Children {
-			s, _ := strconv.ParseUint(v.FSSize.String(), 10, 64)
-			a, _ := strconv.ParseUint(v.FSAvail.String(), 10, 64)
-			u, _ := strconv.ParseUint(v.FSUsed.String(), 10, 64)
-			status.Size += s
-			status.Avail += a
-			status.Used += u
+		if len(currentDisk.Children) > 0 {
+			for _, v := range currentDisk.Children {
+				if len(v.MountPoint) > 0 {
+					s, _ := strconv.ParseUint(v.FSSize.String(), 10, 64)
+					a, _ := strconv.ParseUint(v.FSAvail.String(), 10, 64)
+					u, _ := strconv.ParseUint(v.FSUsed.String(), 10, 64)
+					status.Size += s
+					status.Avail += a
+					status.Used += u
+				}
+			}
+		} else {
+			if len(currentDisk.MountPoint) > 0 {
+				s, _ := strconv.ParseUint(currentDisk.FSSize.String(), 10, 64)
+				a, _ := strconv.ParseUint(currentDisk.FSAvail.String(), 10, 64)
+				u, _ := strconv.ParseUint(currentDisk.FSUsed.String(), 10, 64)
+				status.Size += s
+				status.Avail += a
+				status.Used += u
+			}
 		}
+
 	}
 
 	status.Health = healthy
