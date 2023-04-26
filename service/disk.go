@@ -625,6 +625,12 @@ func (d *diskService) GetUSBDriveStatusList() []model.USBDriveStatus {
 				status.Avail += avail
 			}
 		}
+		if !isMount && len(v.MountPoint) > 0 {
+			isMount = true
+			avail, _ := strconv.ParseUint(v.FSAvail.String(), 10, 64)
+			status.Avail += avail
+		}
+
 		if isMount {
 			statusList = append(statusList, status)
 		}

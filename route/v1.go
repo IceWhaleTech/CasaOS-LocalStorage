@@ -1,10 +1,13 @@
 package route
 
 import (
+	"crypto/ecdsa"
 	"os"
 
+	"github.com/IceWhaleTech/CasaOS-Common/external"
 	"github.com/IceWhaleTech/CasaOS-Common/middleware"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	v1 "github.com/IceWhaleTech/CasaOS-LocalStorage/route/v1"
 
 	"github.com/gin-contrib/gzip"
@@ -29,7 +32,11 @@ func InitV1Router() *gin.Engine {
 	r.GET("/v1/recover/:type", v1.GetRecoverStorage)
 	v1Group := r.Group("/v1")
 
-	v1Group.Use(jwt.JWT())
+	v1Group.Use(jwt.JWT(
+		func() (*ecdsa.PublicKey, error) {
+			return external.GetPublicKey(config.CommonInfo.RuntimePath)
+		},
+	))
 
 	{
 		v1DisksGroup := v1Group.Group("/disks")
