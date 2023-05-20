@@ -81,10 +81,11 @@ func GetDiskList(c *gin.Context) {
 				} else if strings.Contains(systemDisk.SubSystems, "usb") {
 					disk.DiskType = "USB"
 				}
-				disk.Health = "true"
-
-				disks = append(disks, disk)
-				continue
+				if disk.DiskType == "MMC" || disk.DiskType == "USB" {
+					disk.Health = "true"
+					disks = append(disks, disk)
+					continue
+				}
 			}
 		}
 
