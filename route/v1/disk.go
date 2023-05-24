@@ -85,6 +85,7 @@ func GetDiskList(c *gin.Context) {
 					disk.DiskType = "USB"
 				}
 				disk.Health = "true"
+
 				disks = append(disks, disk)
 				continue
 			}
