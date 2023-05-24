@@ -70,6 +70,9 @@ func GetDiskList(c *gin.Context) {
 			disk.DiskType = "SSD"
 		}
 
+		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
+		disk.Temperature = temp.Temperature.Current
+
 		if systemDisk == nil {
 			// go 5 level deep to look for system block device by mount point being "/"
 			systemDisk := service.WalkDisk(currentDisk, 5, func(blk model1.LSBLKModel) bool { return blk.MountPoint == "/" })
@@ -92,7 +95,6 @@ func GetDiskList(c *gin.Context) {
 			continue
 		}
 
-		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
 		if reflect.DeepEqual(temp, model1.SmartctlA{}) {
 			temp.SmartStatus.Passed = true
 		}
@@ -109,7 +111,6 @@ func GetDiskList(c *gin.Context) {
 			avail = append(avail, disk)
 		}
 
-		disk.Temperature = temp.Temperature.Current
 		disk.Health = strconv.FormatBool(temp.SmartStatus.Passed)
 
 		disks = append(disks, disk)
