@@ -1,5 +1,5 @@
 {
-  "name": "casaos-localstorage-openapi",
+  "name": "@icewhale/casaos-localstorage-openapi",
   "version": "0.0.1",
   "scripts": {
     "build": "rm -rf dist && tsc && rm -rf generate",
