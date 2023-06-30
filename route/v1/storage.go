@@ -89,6 +89,7 @@ func GetStorageList(c *gin.Context) {
 				MountPoint:  blkChild.MountPoint,
 				Size:        blkChild.FSSize.String(),
 				Avail:       blkChild.FSAvail.String(),
+				Used:        blkChild.FSUsed.String(),
 				Path:        blkChild.Path,
 				Type:        blkChild.FsType,
 				DriveName:   blkChild.Name,
