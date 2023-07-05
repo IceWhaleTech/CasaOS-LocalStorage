@@ -158,6 +158,9 @@ func DeleteDisksUmount(c *gin.Context) {
 	}
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
+	if len(diskInfo.Children) == 0 && service.IsDiskSupported(diskInfo) {
+		diskInfo.Children = append(diskInfo.Children, diskInfo)
+	}
 	for _, v := range diskInfo.Children {
 		if err := service.MyService.Disk().UmountPointAndRemoveDir(v); err != nil {
 			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})

@@ -473,8 +473,13 @@ func (d *diskService) DeleteMountPointFromDB(path, mountPoint string) error {
 	}
 
 	var existingVolumes []model2.Volume
-	logger.Info("trying to delete volume by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint), zap.Any("uuid", partitions[0].LSBLKProperties[`UUID`]), zap.Any("partitons", partitions))
-	result := d.db.Where(&model2.Volume{UUID: partitions[0].LSBLKProperties["UUID"], MountPoint: mountPoint}).Limit(1).Find(&existingVolumes)
+	f := model2.Volume{MountPoint: mountPoint}
+	if len(partitions) > 0 {
+		f.UUID = partitions[0].LSBLKProperties[`UUID`]
+		logger.Info("trying to delete volume by path and mount point", zap.String("path", path), zap.String("mount point", mountPoint), zap.Any("uuid", partitions[0].LSBLKProperties[`UUID`]), zap.Any("partitons", partitions))
+	}
+
+	result := d.db.Where(&f).Limit(1).Find(&existingVolumes)
 	logger.Info("result", zap.Any("result", result))
 	if result.Error != nil {
 		logger.Error("error when finding the volume by path and mount point", zap.Error(result.Error), zap.String("path", path), zap.String("mount point", mountPoint))

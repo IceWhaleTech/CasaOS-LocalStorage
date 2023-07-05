@@ -55,7 +55,9 @@ func GetStorageList(c *gin.Context) {
 		if reflect.DeepEqual(temp, model1.SmartctlA{}) {
 			temp.SmartStatus.Passed = true
 		}
-
+		if len(currentDisk.Children) == 0 && service.IsDiskSupported(currentDisk) {
+			currentDisk.Children = append(currentDisk.Children, currentDisk)
+		}
 		for _, blkChild := range currentDisk.Children {
 			if err == nil {
 				if blkChild.Path == df.FileSystem {
@@ -181,6 +183,55 @@ func PostAddStorage(c *gin.Context) {
 		}
 	}
 	currentDisk = service.MyService.Disk().GetDiskInfo(path)
+	if len(currentDisk.Children) == 0 && service.IsDiskSupported(currentDisk) {
+		currentDisk.Children = append(currentDisk.Children, currentDisk)
+		// mountPoint := currentDisk.GetMountPoint(name)
+
+		// // mount disk
+		// if output, err := service.MyService.Disk().MountDisk(currentDisk.Path, mountPoint); err != nil {
+		// 	logger.Error("err", zap.Error(err), zap.String("output", mountPoint))
+		// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
+		// 	return
+		// }
+
+		// var b model1.LSBLKModel
+		// retry := 3 // ugly workaround for lsblk not returning UUID after creating partition on time - need a better solution
+		// for b.UUID == "" && retry > 0 {
+		// 	time.Sleep(1 * time.Second)
+		// 	b = service.MyService.Disk().GetDiskInfo(currentDisk.Path)
+		// 	retry--
+		// }
+
+		// m := model2.Volume{
+		// 	MountPoint: b.MountPoint,
+		// 	UUID:       b.UUID,
+		// 	CreatedAt:  time.Now().Unix(),
+		// }
+
+		// if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
+		// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		// 	return
+		// }
+
+		// // send notify to client
+		// go func(blkChild model1.LSBLKModel) {
+		// 	message := map[string]interface{}{
+		// 		"data": StorageMessage{
+		// 			Action: "ADDED",
+		// 			Path:   blkChild.Path,
+		// 			Volume: "/mnt/",
+		// 			Size:   blkChild.Size,
+		// 			Type:   blkChild.Tran,
+		// 		},
+		// 	}
+
+		// 	if err := service.MyService.Notify().SendNotify(messagePathStorageStatus, message); err != nil {
+		// 		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
+		// 	}
+		// }(currentDisk)
+
+	}
+
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
