@@ -159,7 +159,9 @@ func DeleteDisksUmount(c *gin.Context) {
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	if len(diskInfo.Children) == 0 && service.IsDiskSupported(diskInfo) {
-		diskInfo.Children = append(diskInfo.Children, diskInfo)
+		t := diskInfo
+		t.Children = nil
+		diskInfo.Children = append(diskInfo.Children, t)
 	}
 	for _, v := range diskInfo.Children {
 		if err := service.MyService.Disk().UmountPointAndRemoveDir(v); err != nil {
