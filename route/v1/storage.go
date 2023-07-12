@@ -35,7 +35,16 @@ func GetStorageList(c *gin.Context) {
 
 	storages := []model1.Storages{}
 	df, err := service.MyService.Disk().GetSystemDf()
-
+	db, err := service.MyService.Disk().GetSerialAllFromDB()
+	if err != nil {
+		logger.Error("error when getting all volumes from database", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
+	mapdb := make(map[string]string)
+	for _, v := range db {
+		mapdb[v.MountPoint] = v.MountPoint
+	}
 	for _, currentDisk := range blkList {
 		// if currentDisk.Tran == "usb" {
 		// 	continue
@@ -97,7 +106,6 @@ func GetStorageList(c *gin.Context) {
 				DriveName:   blkChild.Name,
 				PersistedIn: service.MyService.Disk().GetPersistentTypeByUUID(blkChild.UUID),
 			}
-
 			if len(blkChild.Label) == 0 {
 				if stor.MountPoint == "/" {
 					stor.Label = "System"
@@ -109,7 +117,10 @@ func GetStorageList(c *gin.Context) {
 			} else {
 				stor.Label = blkChild.Label
 			}
-			storageArr = append(storageArr, stor)
+			if _, ok := mapdb[stor.MountPoint]; ok || stor.Label == "System" {
+				storageArr = append(storageArr, stor)
+			}
+
 		}
 
 		if len(storageArr) == 0 {

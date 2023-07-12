@@ -100,9 +100,13 @@ func GetDiskList(c *gin.Context) {
 		}
 
 		isAvail := true
-		for _, v := range currentDisk.Children {
-			if v.MountPoint != "" {
-				isAvail = false
+		if len(currentDisk.MountPoint) != 0 {
+			isAvail = false
+		} else {
+			for _, v := range currentDisk.Children {
+				if v.MountPoint != "" {
+					isAvail = false
+				}
 			}
 		}
 
