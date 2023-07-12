@@ -35,16 +35,16 @@ func GetStorageList(c *gin.Context) {
 
 	storages := []model1.Storages{}
 	df, err := service.MyService.Disk().GetSystemDf()
-	db, err := service.MyService.Disk().GetSerialAllFromDB()
-	if err != nil {
-		logger.Error("error when getting all volumes from database", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-		return
-	}
-	mapdb := make(map[string]string)
-	for _, v := range db {
-		mapdb[v.MountPoint] = v.MountPoint
-	}
+	// db, err := service.MyService.Disk().GetSerialAllFromDB()
+	// if err != nil {
+	// 	logger.Error("error when getting all volumes from database", zap.Error(err))
+	// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+	// 	return
+	// }
+	// mapdb := make(map[string]string)
+	// for _, v := range db {
+	// 	mapdb[v.MountPoint] = v.MountPoint
+	// }
 	for _, currentDisk := range blkList {
 		// if currentDisk.Tran == "usb" {
 		// 	continue
@@ -117,9 +117,9 @@ func GetStorageList(c *gin.Context) {
 			} else {
 				stor.Label = blkChild.Label
 			}
-			if _, ok := mapdb[stor.MountPoint]; ok || stor.Label == "System" {
-				storageArr = append(storageArr, stor)
-			}
+			//if _, ok := mapdb[stor.MountPoint]; ok || stor.Label == "System" {
+			storageArr = append(storageArr, stor)
+			//}
 
 		}
 
