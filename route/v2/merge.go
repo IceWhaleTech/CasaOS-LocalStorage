@@ -11,12 +11,15 @@ import (
 
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/merge"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
+	"go.uber.org/zap"
 
 	"github.com/labstack/echo/v4"
 )
@@ -124,8 +127,19 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
 	}
-
+	const messageStatus = common.ServiceName + ":merge_status"
 	result := MergeAdapterOut(*merge)
+	msg := make(map[string]interface{})
+	msg["mount_point"] = result.MountPoint
+	msg["source_base_path"] = result.SourceBasePath
+	msg["source_volume_uuids"] = result.SourceVolumeUuids
+	msg["fs_type"] = result.Fstype
+	msg["created_at"] = result.CreatedAt
+	msg["updated_at"] = result.UpdatedAt
+
+	if err := service.MyService.Notify().SendNotify(messageStatus, msg); err != nil {
+		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messageStatus), zap.Any("message", msg))
+	}
 
 	return ctx.JSON(http.StatusOK, codegen.SetMergeResponseOK{
 		Data: &result,

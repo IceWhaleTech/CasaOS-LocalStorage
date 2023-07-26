@@ -9,13 +9,14 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-const messagePathStorageStatus = "storage_status"
+const messagePathStorageStatus = common.ServiceName + ":storage_status"
 
 var diskMap = make(map[string]string)
 

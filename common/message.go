@@ -24,6 +24,7 @@ var (
 			"tran":   "ID_BUS",
 			"serial": "ID_SERIAL_SHORT",
 		},
+		"storage": make(map[string]string),
 
 		// "partition": {
 		// 	fmt.Sprintf("%s:%s", ServiceName, "bus"):    "ID_BUS",

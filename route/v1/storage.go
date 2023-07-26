@@ -290,7 +290,6 @@ func PostAddStorage(c *gin.Context) {
 			}
 		}(blkChild)
 	}
-
 	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
