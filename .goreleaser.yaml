@@ -141,24 +141,22 @@ builds:
     goarm:
       - "7"
 archives:
-  - name_template: "{{ .Os }}-{{ .Arch }}-{{ .ProjectName }}-v{{ .Version }}"
+  - name_template: >-
+      {{ .Os }}-{{- if eq .Arch "arm" }}arm-7{{- else }}{{ .Arch }}{{- end }}-{{ .ProjectName }}-v{{ .Version }}
     id: casaos-local-storage
     builds:
       - casaos-local-storage-amd64
       - casaos-local-storage-arm64
       - casaos-local-storage-arm-7
-    replacements:
-      arm: arm-7
     files:
       - build/**/*
-  - name_template: "{{ .Os }}-{{ .Arch }}-{{ .ProjectName }}-migration-tool-v{{ .Version }}"
+  - name_template: >-
+      {{ .Os }}-{{- if eq .Arch "arm" }}arm-7{{- else }}{{ .Arch }}{{- end }}-{{ .ProjectName }}-migration-tool-v{{ .Version }}
     id: casaos-local-storage-migration-tool
     builds:
       - casaos-local-storage-migration-tool-amd64
       - casaos-local-storage-migration-tool-arm64
       - casaos-local-storage-migration-tool-arm-7
-    replacements:
-      arm: arm-7
     files:
       - build/sysroot/etc/**/*
 checksum:
