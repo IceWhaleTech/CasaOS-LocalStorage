@@ -6,71 +6,12 @@ on:
 permissions:
   contents: write
 jobs:
-  goreleaser:
-    runs-on: ubuntu-22.04
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: isntall git
-        run: sudo apt install --yes git
-      
-      - name: git global
-        run: sudo git config --global --add safe.directory '*'
-        
-      - name: set version
-        run: sudo git tag v99.99.99-alpha 
-      
-      - name: Fetch all tags
-        run: sudo git fetch --force --tags
-      
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 'stable'
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          # either 'goreleaser' (default) or 'goreleaser-pro'
-          distribution: goreleaser
-          # version: latest
-          version: 1.14.1
-          args: release --rm-dist --snapshot
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-      
-      - name: remove migration file
-        run: find . -type f  \( -name '*migration*' \) -delete
-      
-      - name: install sshpass
-        run: sudo apt install sshpass --yes
-        
-      - name: ZeroTier
-        uses: zerotier/github-action@v1.0.1
-        with:
-            network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
-            auth_token: ${{ secrets.ZEROTIER_CENTRAL_TOKEN }}
-            
-      - name: ping host
-        shell: bash
-        run: |
-          count=10
-          while ! ping -c 1 10.147.18.11 ; do
-            echo "waiting..." ;
-            sleep 1 ;
-            let count=count-1
-          done
-          echo "ping success"
-            
-      - name: copy tar to target host
-        shell: bash
-        run: |
-          sshpass -p "${{ secrets.ssh_password }}" scp -r -o StrictHostKeyChecking=no -P 22 ./dist/*.gz root@10.147.18.11:/var/www/download
-          echo "ping success"
-      - name: send message
-        run: |
-          curl -X POST -H "Content-Type: application/json" -d '{"msg_type":"text","content":{"text":"CasaOS-LocalStorage updated"}}' ${{ secrets.SSH_ROBOT_URL }}
+  call-workflow-passing-data:
+    uses: IceWhaleTech/github/.github/workflows/push_test_server.yml@main
+    with:
+      project-name: casaos-local-storage
+    secrets:
+      ZEROTIER_NETWORK_ID: ${{ secrets.ZEROTIER_NETWORK_ID }}
+      ZEROTIER_CENTRAL_TOKEN: ${{ secrets.ZEROTIER_CENTRAL_TOKEN }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+      SSH_ROBOT_URL: ${{ secrets.SSH_ROBOT_URL }}

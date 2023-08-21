@@ -1,5 +1,4 @@
 name: Collect Code Coverage
-
 on:
   push:
     branches:
@@ -7,22 +6,6 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
-  build:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.20"
-      - name: Go Generate
-        run: go generate
-      - name: Run coverage
-        run: go test -race -failfast -coverprofile=coverage.txt -covermode=atomic -v ./...
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+  call-workflow-passing-data:
+    uses: IceWhaleTech/github/.github/workflows/go_codecov.yml@main
