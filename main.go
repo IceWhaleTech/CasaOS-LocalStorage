@@ -50,7 +50,6 @@ var (
 )
 
 func init() {
-	startTime := time.Now()
 
 	configFlag := flag.String("c", "", "config address")
 	dbFlag := flag.String("db", "", "db path")
@@ -106,8 +105,7 @@ func init() {
 	// service.MountLists = make(map[string]*mountlib.MountPoint)
 	// configfile.Install()
 	// service.MyService.Storage().CheckAndMountAll()
-	end := time.Now()
-	logger.Info("Elapsed", zap.Duration("elapsed", end.Sub(startTime)))
+
 }
 
 func checkToken2_11() {
@@ -145,7 +143,6 @@ func ensureDefaultDirectories() {
 }
 
 func main() {
-	startTime := time.Now()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -216,8 +213,7 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	end := time.Now()
-	logger.Info("Elapsed1", zap.Duration("elapsed1", end.Sub(startTime)))
+
 	err = server.Serve(listener)
 	if err != nil {
 		panic(err)

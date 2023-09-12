@@ -62,13 +62,13 @@ type Drive struct {
 	Path           string         `json:"path"`
 	ChildrenNumber int            `json:"children_number"`
 	Children       []DiskChildren `json:"children"`
-	Suported       bool           `json:"suported"`
+	Supported      bool           `json:"supported"`
 }
 type DiskChildren struct {
-	Name     string `json:"name"`
-	Size     uint64 `json:"size"`
-	Format   string `json:"format"`
-	Suported bool   `json:"suported"`
+	Name      string `json:"name"`
+	Size      uint64 `json:"size"`
+	Format    string `json:"format"`
+	Supported bool   `json:"supported"`
 }
 
 type USBDriveStatus struct {

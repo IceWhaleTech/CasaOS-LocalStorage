@@ -57,23 +57,23 @@ func GetDiskList(c *gin.Context) {
 
 	for _, currentDisk := range blkList {
 		childre := []model1.DiskChildren{}
-		suported := true
+		supported := true
 		if len(currentDisk.Children) > 0 {
 			for _, v := range currentDisk.Children {
 				if !service.IsFormatSupported(v) {
-					suported = false
+					supported = false
 				}
 				t := model1.DiskChildren{
-					Name:     v.Name,
-					Size:     v.Size,
-					Format:   v.FsType,
-					Suported: service.IsFormatSupported(v),
+					Name:      v.Name,
+					Size:      v.Size,
+					Format:    v.FsType,
+					Supported: service.IsFormatSupported(v),
 				}
 				childre = append(childre, t)
 			}
 		} else {
 			if !service.IsFormatSupported(currentDisk) {
-				suported = false
+				supported = false
 			}
 		}
 
@@ -85,7 +85,7 @@ func GetDiskList(c *gin.Context) {
 			Model:          currentDisk.Model,
 			ChildrenNumber: len(currentDisk.Children),
 			Children:       childre,
-			Suported:       suported,
+			Supported:      supported,
 		}
 
 		if currentDisk.Rota {
