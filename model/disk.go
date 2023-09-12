@@ -51,16 +51,24 @@ type LSBLKModel struct {
 }
 
 type Drive struct {
-	Name           string `json:"name"`
-	Size           uint64 `json:"size"`
-	Model          string `json:"model"`
-	Health         string `json:"health"`
-	Temperature    int    `json:"temperature"`
-	DiskType       string `json:"disk_type"`
-	NeedFormat     bool   `json:"need_format"`
-	Serial         string `json:"serial"`
-	Path           string `json:"path"`
-	ChildrenNumber int    `json:"children_number"`
+	Name           string         `json:"name"`
+	Size           uint64         `json:"size"`
+	Model          string         `json:"model"`
+	Health         string         `json:"health"`
+	Temperature    int            `json:"temperature"`
+	DiskType       string         `json:"disk_type"`
+	NeedFormat     bool           `json:"need_format"`
+	Serial         string         `json:"serial"`
+	Path           string         `json:"path"`
+	ChildrenNumber int            `json:"children_number"`
+	Children       []DiskChildren `json:"children"`
+	Suported       bool           `json:"suported"`
+}
+type DiskChildren struct {
+	Name     string `json:"name"`
+	Size     uint64 `json:"size"`
+	Format   string `json:"format"`
+	Suported bool   `json:"suported"`
 }
 
 type USBDriveStatus struct {

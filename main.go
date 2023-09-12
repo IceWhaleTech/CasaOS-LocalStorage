@@ -50,6 +50,8 @@ var (
 )
 
 func init() {
+	startTime := time.Now()
+
 	configFlag := flag.String("c", "", "config address")
 	dbFlag := flag.String("db", "", "db path")
 
@@ -78,7 +80,7 @@ func init() {
 	service.MyService = service.NewService(sqliteDB)
 	service.Cache = cache.Init()
 
-	service.MyService.Disk().CheckSerialDiskMount()
+	go service.MyService.Disk().CheckSerialDiskMount()
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
 		if !merge.IsMergerFSInstalled() {
@@ -95,15 +97,17 @@ func init() {
 	}
 
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-		service.MyService.LocalStorage().CheckMergeMount()
+		go service.MyService.LocalStorage().CheckMergeMount()
 	}
 
 	checkToken2_11()
 
-	ensureDefaultDirectories()
+	go ensureDefaultDirectories()
 	// service.MountLists = make(map[string]*mountlib.MountPoint)
 	// configfile.Install()
 	// service.MyService.Storage().CheckAndMountAll()
+	end := time.Now()
+	logger.Info("Elapsed", zap.Duration("elapsed", end.Sub(startTime)))
 }
 
 func checkToken2_11() {
@@ -141,12 +145,14 @@ func ensureDefaultDirectories() {
 }
 
 func main() {
+	startTime := time.Now()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go monitorUEvent(ctx)
 
-	sendStorageStats()
+	go sendStorageStats()
 
 	crontab := cron.New(cron.WithSeconds())
 	if _, err := crontab.AddFunc("@every 5s", sendStorageStats); err != nil {
@@ -182,7 +188,44 @@ func main() {
 			panic(err)
 		}
 	}
+	go RegMsg()
+	go service.MyService.Disk().InitCheck()
+	v1Router := route.InitV1Router()
+	v2Router := route.InitV2Router()
+	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
 
+	mux := &util_http.HandlerMultiplexer{
+		HandlerMap: map[string]http.Handler{
+			"v1":  v1Router,
+			"v2":  v2Router,
+			"doc": v2DocRouter,
+		},
+	}
+
+	if supported, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+		logger.Error("Failed to notify systemd that local storage service is ready", zap.Error(err))
+	} else if supported {
+		logger.Info("Notified systemd that local storage service is ready")
+	} else {
+		logger.Info("This process is not running as a systemd service.")
+	}
+
+	logger.Info("LocalStorage service is listening...", zap.Any("address", listener.Addr().String()))
+
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	end := time.Now()
+	logger.Info("Elapsed1", zap.Duration("elapsed1", end.Sub(startTime)))
+	err = server.Serve(listener)
+	if err != nil {
+		panic(err)
+	}
+}
+func RegMsg() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var events []message_bus.EventType
 	events = append(events, message_bus.EventType{Name: common.ServiceName + ":merge_status", SourceID: common.ServiceName, PropertyTypeList: []message_bus.PropertyType{}})
 	events = append(events, message_bus.EventType{Name: common.ServiceName + ":storage_status", SourceID: common.ServiceName, PropertyTypeList: []message_bus.PropertyType{}})
@@ -212,36 +255,4 @@ func main() {
 		}
 	}
 
-	service.MyService.Disk().InitCheck()
-	v1Router := route.InitV1Router()
-	v2Router := route.InitV2Router()
-	v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
-
-	mux := &util_http.HandlerMultiplexer{
-		HandlerMap: map[string]http.Handler{
-			"v1":  v1Router,
-			"v2":  v2Router,
-			"doc": v2DocRouter,
-		},
-	}
-
-	if supported, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
-		logger.Error("Failed to notify systemd that local storage service is ready", zap.Error(err))
-	} else if supported {
-		logger.Info("Notified systemd that local storage service is ready")
-	} else {
-		logger.Info("This process is not running as a systemd service.")
-	}
-
-	logger.Info("LocalStorage service is listening...", zap.Any("address", listener.Addr().String()))
-
-	server := &http.Server{
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	err = server.Serve(listener)
-	if err != nil {
-		panic(err)
-	}
 }

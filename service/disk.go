@@ -788,7 +788,13 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		strings.Contains(d.SubSystems, "virtio") ||
 		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
 		strings.Contains(d.SubSystems, "block:mmc:mmc_host:pci") ||
-		(d.Tran == "ata" && d.Type == "disk")
+		(d.Tran == "ata" && d.Type == "disk") || d.Tran == "usb"
+}
+func IsFormatSupported(d model.LSBLKModel) bool {
+	if d.FsType == "vfat" || d.FsType == "ext4" || d.FsType == "ext3" || d.FsType == "ext2" || d.FsType == "exfat" || d.FsType == "ntfs-3g" || d.FsType == "iso9660" {
+		return true
+	}
+	return false
 }
 
 func WalkDisk(rootBlk model.LSBLKModel, depth uint, shouldStopAt func(blk model.LSBLKModel) bool) *model.LSBLKModel {
