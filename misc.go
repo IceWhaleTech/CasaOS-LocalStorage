@@ -22,26 +22,24 @@ func sendDiskBySocket() {
 	status := model.DiskStatus{}
 	healthy := true
 
-	var systemDisk *model.LSBLKModel
+	//var systemDisk *model.LSBLKModel
 
 	for _, currentDisk := range blkList {
 
-		if systemDisk == nil {
-			// go 5 level deep to look for system block device by mount point being "/"
-			systemDisk = service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
+		// if systemDisk == nil {
+		// 	// go 5 level deep to look for system block device by mount point being "/"
+		// 	systemDisk = service.WalkDisk(currentDisk, 5, func(blk model.LSBLKModel) bool { return blk.MountPoint == "/" })
 
-			if systemDisk != nil {
-				s, _ := strconv.ParseUint(systemDisk.FSSize.String(), 10, 64)
-				a, _ := strconv.ParseUint(systemDisk.FSAvail.String(), 10, 64)
-				u, _ := strconv.ParseUint(systemDisk.FSUsed.String(), 10, 64)
-				status.Size += s
-				status.Avail += a
-				status.Used += u
-
-				continue
-			}
-		}
-
+		// 	if systemDisk != nil {
+		// 		s, _ := strconv.ParseUint(systemDisk.FSSize.String(), 10, 64)
+		// 		a, _ := strconv.ParseUint(systemDisk.FSAvail.String(), 10, 64)
+		// 		u, _ := strconv.ParseUint(systemDisk.FSUsed.String(), 10, 64)
+		// 		status.Size += s
+		// 		status.Avail += a
+		// 		status.Used += u
+		//		continue
+		// 	}
+		// }
 		if !service.IsDiskSupported(currentDisk) {
 			continue
 		}
@@ -76,7 +74,6 @@ func sendDiskBySocket() {
 	}
 
 	status.Health = healthy
-
 	message := make(map[string]interface{})
 	message["sys_disk"] = status
 

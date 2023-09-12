@@ -56,6 +56,27 @@ func GetDiskList(c *gin.Context) {
 	var systemDisk *model1.LSBLKModel
 
 	for _, currentDisk := range blkList {
+		childre := []model1.DiskChildren{}
+		suported := true
+		if len(currentDisk.Children) > 0 {
+			for _, v := range currentDisk.Children {
+				if !service.IsFormatSupported(v) {
+					suported = false
+				}
+				t := model1.DiskChildren{
+					Name:     v.Name,
+					Size:     v.Size,
+					Format:   v.FsType,
+					Suported: service.IsFormatSupported(v),
+				}
+				childre = append(childre, t)
+			}
+		} else {
+			if !service.IsFormatSupported(currentDisk) {
+				suported = false
+			}
+		}
+
 		disk := model1.Drive{
 			Serial:         currentDisk.Serial,
 			Name:           currentDisk.Name,
@@ -63,6 +84,8 @@ func GetDiskList(c *gin.Context) {
 			Path:           currentDisk.Path,
 			Model:          currentDisk.Model,
 			ChildrenNumber: len(currentDisk.Children),
+			Children:       childre,
+			Suported:       suported,
 		}
 
 		if currentDisk.Rota {

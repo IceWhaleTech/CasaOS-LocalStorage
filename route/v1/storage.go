@@ -242,16 +242,18 @@ func PostAddStorage(c *gin.Context) {
 		// }(currentDisk)
 
 	}
-
+	message := ""
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
 
 		// mount disk
 		if output, err := service.MyService.Disk().MountDisk(blkChild.Path, mountPoint); err != nil {
-			logger.Error("err", zap.Error(err), zap.String("output", mountPoint))
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
-			return
+			logger.Error("err", zap.Error(err), zap.String("mountPoint", mountPoint), zap.String("output", output))
+			message += blkChild.Path + "\n"
+			continue
+			// c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
+			// return
 		}
 
 		var b model1.LSBLKModel
@@ -289,6 +291,10 @@ func PostAddStorage(c *gin.Context) {
 				logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
 			}
 		}(blkChild)
+	}
+	if len(message) > 0 {
+		c.JSON(http.StatusOK, model.Result{Success: common_err.SERVICE_ERROR, Message: message})
+		return
 	}
 	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
