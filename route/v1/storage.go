@@ -271,8 +271,12 @@ func PostAddStorage(c *gin.Context) {
 		}
 
 		if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-			return
+			blkChild.MountPoint = mountPoint
+			service.MyService.Disk().UmountPointAndRemoveDir(blkChild)
+			message += blkChild.Path + "\n"
+			continue
+			//c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			//return
 		}
 
 		// send notify to client
