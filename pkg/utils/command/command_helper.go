@@ -44,12 +44,12 @@ func ExecSmartCTLByPath(path string) []byte {
 	defer cancel()
 	//smartctl -i -n standby /dev/sdc  TODO:https://www.ippa.top/956.html
 	cmd := exec.CommandContext(ctx, "smartctl", "-a", "-n", "standby", path, "-j")
-	println(cmd.String())
 
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println(string(output))
-		return nil
+		fmt.Println("smartctl", err.Error())
+		fmt.Println("smartctl", string(path))
+		fmt.Println("smartctl", len(output))
 	}
 	return output
 }
