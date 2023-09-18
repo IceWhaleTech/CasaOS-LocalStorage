@@ -47,7 +47,11 @@ func sendDiskBySocket() {
 		if reflect.DeepEqual(temp, model.SmartctlA{}) {
 			healthy = true
 		} else {
-			healthy = temp.SmartStatus.Passed
+			if len(temp.ModelName) > 0 {
+				healthy = temp.SmartStatus.Passed
+			} else {
+				healthy = true
+			}
 		}
 		if len(currentDisk.Children) > 0 {
 			for _, v := range currentDisk.Children {
