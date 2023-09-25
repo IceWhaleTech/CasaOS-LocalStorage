@@ -285,7 +285,7 @@ func PostAddStorage(c *gin.Context) {
 				"data": StorageMessage{
 					Action: "ADDED",
 					Path:   blkChild.Path,
-					Volume: "/mnt/",
+					Volume: "/media/",
 					Size:   blkChild.Size,
 					Type:   blkChild.Tran,
 				},

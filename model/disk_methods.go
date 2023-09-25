@@ -6,7 +6,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 )
 
-const defaultMountPath = "/mnt"
+const defaultMountPath = "/media"
 
 func (m *LSBLKModel) GetMountPoint(name string) string {
 	if name == "" {
