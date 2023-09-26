@@ -21,6 +21,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
@@ -82,8 +83,6 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 	mountPoint := "/DATA"
 	sourceBasePath := constants.DefaultFilePath
 
-	logger.Info("ensure default merge point exists", zap.String("mount point", mountPoint), zap.String("sourceBasePath", sourceBasePath))
-
 	existingMerges, err := MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
 	if err != nil {
 		panic(err)
@@ -103,14 +102,30 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 		SourceBasePath: &sourceBasePath,
 	}
 
-	if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
-		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
-			logger.Info(err.Error(), zap.String("mount point", mountPoint))
-		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
-			return false
-		} else {
-			panic(err)
+	mounts, err := MyService.LocalStorage().GetMounts(codegen.GetMountsParams{})
+	if err != nil {
+		logger.Error("failed to get mount list from system", zap.Error(err))
+		return false
+	}
+	isExist := false
+	for _, v := range mounts {
+		if v.MountPoint == mountPoint {
+			isExist = true
+			merge.SourceBasePath = v.Source
+			break
+		}
+	}
+
+	if !isExist {
+		if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
+			if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
+				logger.Info(err.Error(), zap.String("mount point", mountPoint))
+			} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+				logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+				return false
+			} else {
+				panic(err)
+			}
 		}
 	}
 
@@ -146,7 +161,6 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	var m model.SmartctlA
 	buf := command.ExecSmartCTLByPath(path)
 	if buf == nil {
-		logger.Error("failed to exec shell - smartctl exec error")
 		if err := Cache.Add(key, m, time.Minute*10); err != nil {
 			logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
 		}
@@ -788,6 +802,7 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		strings.Contains(d.SubSystems, "virtio") ||
 		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
 		strings.Contains(d.SubSystems, "block:mmc:mmc_host:pci") ||
+		strings.Contains(d.SubSystems, "block:scsi:pci") ||
 		(d.Tran == "ata" && d.Type == "disk") || d.Tran == "usb"
 }
 func IsFormatSupported(d model.LSBLKModel) bool {

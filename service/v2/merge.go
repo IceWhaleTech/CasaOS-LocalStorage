@@ -155,7 +155,6 @@ func (s *LocalStorageService) UpdateMerge(merge *model2.Merge) error {
 }
 
 func (s *LocalStorageService) CheckMergeMount() {
-	logger.Info("checking merge mount...")
 
 	mergesFromDB, err := s.GetMergeAllFromDB(nil)
 	if err != nil {

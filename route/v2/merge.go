@@ -3,8 +3,6 @@ package v2
 import (
 	"fmt"
 
-	"io/ioutil"
-
 	"net/http"
 	"os"
 	"strings"
@@ -165,11 +163,10 @@ func (s *LocalStorage) InitMerge(ctx echo.Context) error {
 		message := "mount point is empty"
 		return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})
 	}
-
 	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
 		if !file.CheckNotExist(m.MountPoint) {
 
-			dir, _ := ioutil.ReadDir(constants.DefaultFilePath)
+			dir, _ := os.ReadDir(constants.DefaultFilePath)
 			if len(dir) > 0 {
 				message := "Please make sure the /var/lib/casaos/files directory is empty"
 				return ctx.JSON(http.StatusBadRequest, codegen.ResponseBadRequest{Message: &message})

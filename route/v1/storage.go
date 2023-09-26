@@ -135,9 +135,7 @@ func GetStorageList(c *gin.Context) {
 				}
 			}
 			tempDisk.Children = tempStorageArr
-			logger.Info("system disk", zap.Any("disk", tempDisk))
 			storages = append(storages, tempDisk)
-			logger.Info("system disk", zap.Any("storages", storages))
 		} else if !tempSystemDisk {
 			tempDisk.Children = storageArr
 			storages = append(storages, tempDisk)
@@ -246,7 +244,6 @@ func PostAddStorage(c *gin.Context) {
 	for _, blkChild := range currentDisk.Children {
 
 		mountPoint := blkChild.GetMountPoint(name)
-
 		// mount disk
 		if output, err := service.MyService.Disk().MountDisk(blkChild.Path, mountPoint); err != nil {
 			logger.Error("err", zap.Error(err), zap.String("mountPoint", mountPoint), zap.String("output", output))
