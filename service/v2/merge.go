@@ -98,13 +98,16 @@ func (s *LocalStorageService) CreateMerge(merge *model2.Merge) error {
 
 	sources, err := buildSources(merge)
 	if err != nil {
+		logger.Error("failed to build sources", zap.Error(err))
 		return err
 	}
 
 	// check if the mount point is empty before creating a new mergerfs mount
 	if bool, err := file.IsDirEmpty(merge.MountPoint); err != nil {
+		logger.Error("failed to check if the mount point is empty", zap.Error(err))
 		return err
 	} else if !bool {
+		logger.Error("mount point is not empty", zap.String("mountPoint", merge.MountPoint))
 		return ErrMountPointIsNotEmpty
 	}
 
@@ -115,6 +118,7 @@ func (s *LocalStorageService) CreateMerge(merge *model2.Merge) error {
 		Fstype:     &merge.FSType,
 		Source:     &source,
 	}); err != nil {
+		logger.Error("failed to mount mergerfs", zap.Error(err), zap.String("mountPoint", merge.MountPoint), zap.String("source", source))
 		return err
 	}
 
@@ -135,18 +139,21 @@ func (s *LocalStorageService) UpdateMerge(merge *model2.Merge) error {
 
 	sources, err := buildSources(merge)
 	if err != nil {
+		logger.Error("failed to build sources", zap.Error(err))
 		return err
 	}
 
 	// if it is already a merge point, check if the mount point is a mergerfs mount with the same sources
 	existingSources, err := mergerfs.GetSource(merge.MountPoint)
 	if err != nil {
+		logger.Error("failed to get mergerfs sources", zap.Error(err), zap.String("mountPoint", merge.MountPoint))
 		return err
 	}
 
 	if !utils.CompareStringSlices(sources, existingSources) {
 		// update the mergerfs sources if different sources
 		if err := mergerfs.SetSource(merge.MountPoint, sources); err != nil {
+			logger.Error("failed to set mergerfs sources", zap.Error(err), zap.String("mountPoint", merge.MountPoint), zap.Any("sources", sources))
 			return err
 		}
 	}

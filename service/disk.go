@@ -80,7 +80,7 @@ var (
 )
 
 func (d *diskService) EnsureDefaultMergePoint() bool {
-	mountPoint := "/DATA"
+	mountPoint := constants.DefaultMountPoint
 	sourceBasePath := constants.DefaultFilePath
 
 	existingMerges, err := MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)

@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"go.uber.org/zap"
 )
 
 func ControlFile(fspath string) string {
@@ -56,8 +59,13 @@ func SetSource(fspath string, sources []string) error {
 	}
 
 	value := []byte(strings.Join(dedupedSources, ":"))
-
-	return syscall.Setxattr(ctrlfile, key, value, 0)
+	logger.Error("SetSource", zap.String("key", key), zap.String("value", string(value)), zap.String("ctrlfile", ctrlfile))
+	err := syscall.Setxattr(ctrlfile, key, value, 0)
+	if err != nil {
+		logger.Error("SetSource", zap.Error(err))
+		return err
+	}
+	return err
 }
 
 func GetSource(fspath string) ([]string, error) {

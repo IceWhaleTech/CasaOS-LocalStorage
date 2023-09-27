@@ -55,12 +55,13 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	if m.Fstype != nil {
 		fstype = *m.Fstype
 	}
-
+	logger.Info("fstype", zap.String("fstype", fstype))
 	// expand source volume paths to source volumes
 	var sourceVolumes []*model2.Volume
 	if m.SourceVolumeUuids != nil {
 		volumesFromDB, err := service.MyService.Disk().GetSerialAllFromDB()
 		if err != nil {
+			logger.Error("failed to get serial disks from database", zap.Error(err))
 			message := err.Error()
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
@@ -86,6 +87,7 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	merge, err := service.MyService.LocalStorage().GetFirstMergeFromDB(m.MountPoint)
 	if err != nil {
 		message := err.Error()
+		logger.Error("failed to get merge from database", zap.Error(err), zap.String("mount point", m.MountPoint))
 		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
 
@@ -98,11 +100,14 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 		}
 
 		if err := service.MyService.LocalStorage().CreateMerge(merge); err != nil {
+
 			message := err.Error()
+			logger.Error("failed to create merge", zap.Error(err), zap.String("mount point", m.MountPoint))
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
 
 		if err := service.MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
+			logger.Error("failed to create merge in database", zap.Error(err), zap.String("mount point", m.MountPoint))
 			message := err.Error()
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
@@ -117,11 +122,13 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 
 		if err := service.MyService.LocalStorage().UpdateMerge(merge); err != nil {
 			message := err.Error()
+			logger.Error("failed to update merge", zap.Error(err), zap.String("mount point", m.MountPoint))
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
 
 		if err := service.MyService.LocalStorage().UpdateMergeSourcesInDB(merge); err != nil {
 			message := err.Error()
+			logger.Error("failed to update merge sources in database", zap.Error(err), zap.String("mount point", m.MountPoint))
 			return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 		}
 	}
@@ -144,13 +151,21 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	})
 }
 func (s *LocalStorage) GetMergeInitStatus(ctx echo.Context) error {
-	if strings.ToLower(config.ServerInfo.EnableMergerFS) != "true" {
-		status := codegen.Uninitialized
-		return ctx.JSON(http.StatusOK, codegen.GetMergeInitStatusResponseOK{Data: &status})
-	} else {
-		status := codegen.Initialized
-		return ctx.JSON(http.StatusOK, codegen.GetMergeInitStatusResponseOK{Data: &status})
+	status := codegen.Uninitialized
+	mountPoint := constants.DefaultMountPoint
+
+	existingMerges, err := service.MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
+	if err != nil {
+		message := err.Error()
+		return ctx.JSON(http.StatusInternalServerError, codegen.BaseResponse{Message: &message})
 	}
+
+	// check if /DATA is already a merge point
+	if len(existingMerges) > 0 {
+		status = codegen.Initialized
+	}
+	return ctx.JSON(http.StatusOK, codegen.GetMergeInitStatusResponseOK{Data: &status})
+
 }
 func (s *LocalStorage) InitMerge(ctx echo.Context) error {
 	var m codegen.MountPoint
