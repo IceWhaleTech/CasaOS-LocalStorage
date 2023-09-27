@@ -22,6 +22,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
+
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
@@ -80,7 +81,7 @@ var (
 )
 
 func (d *diskService) EnsureDefaultMergePoint() bool {
-	mountPoint := constants.DefaultMountPoint
+	mountPoint := common.DefaultMountPoint
 	sourceBasePath := constants.DefaultFilePath
 
 	existingMerges, err := MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)

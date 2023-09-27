@@ -152,7 +152,7 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 }
 func (s *LocalStorage) GetMergeInitStatus(ctx echo.Context) error {
 	status := codegen.Uninitialized
-	mountPoint := constants.DefaultMountPoint
+	mountPoint := common.DefaultMountPoint
 
 	existingMerges, err := service.MyService.LocalStorage().GetMergeAllFromDB(&mountPoint)
 	if err != nil {
