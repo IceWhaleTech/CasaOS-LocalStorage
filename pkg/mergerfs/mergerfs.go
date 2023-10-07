@@ -46,7 +46,7 @@ func ListValues(fspath string) (map[string]string, error) {
 func SetSource(fspath string, sources []string) error {
 	ctrlfile := ControlFile(fspath)
 
-	key := "user.mergerfs.srcmounts"
+	key := "user.mergerfs.branches"
 
 	sourceMap := make(map[string]interface{})
 	for _, source := range sources {
@@ -59,8 +59,9 @@ func SetSource(fspath string, sources []string) error {
 	}
 
 	value := []byte(strings.Join(dedupedSources, ":"))
-	logger.Error("SetSource", zap.String("key", key), zap.String("value", string(value)), zap.String("ctrlfile", ctrlfile))
+	//str, err := command.ExecResultStr("setfattr -n " + key + " -v " + string(string(value)) + " " + ctrlfile)
 	err := syscall.Setxattr(ctrlfile, key, value, 0)
+	//logger.Error("SetSourceStr", zap.String("str", str))
 	if err != nil {
 		logger.Error("SetSource", zap.Error(err))
 		return err
@@ -80,7 +81,7 @@ func GetSource(fspath string) ([]string, error) {
 func AddSource(fspath string, source string) error {
 	ctrlfile := ControlFile(fspath)
 
-	key := "user.mergerfs.srcmounts"
+	key := "user.mergerfs.branches"
 	value := []byte("+" + source)
 
 	return syscall.Setxattr(ctrlfile, key, value, 0)
@@ -89,7 +90,7 @@ func AddSource(fspath string, source string) error {
 func RemoveSource(fspath string, source string) error {
 	ctrlfile := ControlFile(fspath)
 
-	key := "user.mergerfs.srcmounts"
+	key := "user.mergerfs.branches"
 	value := []byte("-" + source)
 
 	return syscall.Setxattr(ctrlfile, key, value, 0)

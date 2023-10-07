@@ -10,7 +10,7 @@ import (
 const fstabContent = `
 	# UNCONFIGURED FSTAB FOR BASE SYSTEM
 	LABEL=UEFI      /boot/efi       vfat    umask=0077      0 1
-	/mnt/sdb:/mnt/sdc       /media  mergerfs        defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M 0 0
+	/mnt/sdb:/mnt/sdc       /media  mergerfs        defaults,allow_other,category.create=mfs,moveonenospc=true,minfreespace=1M 0 0
 	LABEL=desktop-rootfs    /               ext4    defaults        0 1
 `
 
@@ -31,7 +31,7 @@ func TestFSTab(t *testing.T) {
 	assert.Equal(t, entry.Source, "/mnt/sdb:/mnt/sdc")
 	assert.Equal(t, entry.MountPoint, "/media")
 	assert.Equal(t, entry.FSType, "mergerfs")
-	assert.Equal(t, entry.Options, "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M")
+	assert.Equal(t, entry.Options, "defaults,allow_other,category.create=mfs,moveonenospc=true,minfreespace=1M")
 	assert.Equal(t, entry.Dump, 0)
 	assert.Equal(t, entry.Pass, PassDoNotCheck)
 
@@ -51,7 +51,7 @@ func TestFSTab(t *testing.T) {
 	assert.Equal(t, entry.Source, "/mnt/sdb:/mnt/sdc")
 	assert.Equal(t, entry.MountPoint, "/media")
 	assert.Equal(t, entry.FSType, "mergerfs")
-	assert.Equal(t, entry.Options, "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M")
+	assert.Equal(t, entry.Options, "defaults,allow_other,category.create=mfs,moveonenospc=true,minfreespace=1M")
 	assert.Equal(t, entry.Dump, 0)
 	assert.Equal(t, entry.Pass, PassDoNotCheck)
 }

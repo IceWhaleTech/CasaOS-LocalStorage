@@ -486,7 +486,7 @@ components:
           example: "/mnt/a:/mnt/b"
         options:
           type: string
-          example: "defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M"
+          example: "defaults,allow_other,category.create=mfs,moveonenospc=true,minfreespace=1M"
         extended:
           type: object
           description: |-

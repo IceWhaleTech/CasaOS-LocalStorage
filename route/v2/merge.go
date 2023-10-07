@@ -55,7 +55,6 @@ func (s *LocalStorage) SetMerge(ctx echo.Context) error {
 	if m.Fstype != nil {
 		fstype = *m.Fstype
 	}
-	logger.Info("fstype", zap.String("fstype", fstype))
 	// expand source volume paths to source volumes
 	var sourceVolumes []*model2.Volume
 	if m.SourceVolumeUuids != nil {

@@ -94,6 +94,7 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 		if len(existingMerges) > 1 {
 			logger.Error("more than one merge point with the same mount point found", zap.String("mount point", mountPoint))
 		}
+		config.ServerInfo.EnableMergerFS = "true"
 		return true
 	}
 
@@ -111,6 +112,7 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 	isExist := false
 	for _, v := range mounts {
 		if v.MountPoint == mountPoint {
+			config.ServerInfo.EnableMergerFS = "true"
 			isExist = true
 			merge.SourceBasePath = v.Source
 			break
@@ -133,7 +135,7 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 	if err := MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
 		panic(err)
 	}
-
+	config.ServerInfo.EnableMergerFS = "true"
 	return true
 }
 func (d *diskService) RemoveLSBLKCache() {
@@ -163,18 +165,18 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	buf := command.ExecSmartCTLByPath(path)
 	if buf == nil {
 		if err := Cache.Add(key, m, time.Minute*10); err != nil {
-			logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+			//logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
 		}
 		return m
 	}
 
 	err := json2.Unmarshal(buf, &m)
 	if err != nil {
-		logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
+		//logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
 	}
 	if !reflect.DeepEqual(m, model.SmartctlA{}) {
 		if err := Cache.Add(key, m, time.Hour*24); err != nil {
-			logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+			//logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
 		}
 	}
 	return m
