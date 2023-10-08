@@ -93,6 +93,9 @@ func GetDiskList(c *gin.Context) {
 		} else {
 			disk.DiskType = "SSD"
 		}
+		if currentDisk.Tran == "usb" {
+			disk.DiskType = "USB"
+		}
 
 		temp := service.MyService.Disk().SmartCTL(currentDisk.Path)
 		disk.Temperature = temp.Temperature.Current
