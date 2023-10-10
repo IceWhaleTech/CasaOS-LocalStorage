@@ -13,6 +13,7 @@ import (
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/gin-gonic/gin"
+	"github.com/shirou/gopsutil/v3/disk"
 	"go.uber.org/zap"
 )
 
@@ -230,4 +231,22 @@ func DeleteDisksUmount(c *gin.Context) {
 	}()
 
 	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
+}
+func GetDiskSize(c *gin.Context) {
+	path := c.Query("path")
+	if len(path) == 0 {
+		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
+		return
+	}
+	p, err := disk.Usage(path)
+	if err != nil {
+		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		return
+	}
+	data := map[string]interface{}{
+		"path": path,
+		"free": p.Free,
+		"used": p.Used,
+	}
+	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
 }
