@@ -30,9 +30,9 @@ builds:
       - amd64
   - id: casaos-local-storage-arm64
     binary: build/sysroot/usr/bin/casaos-local-storage
-    hooks:
-      post:
-        - upx --best --lzma -v --no-progress "{{ .Path }}"
+    # hooks:
+    #   post:
+    #     - upx --best --lzma -v --no-progress "{{ .Path }}"
     env:
       - CC=aarch64-linux-gnu-gcc
     ldflags:
@@ -96,9 +96,9 @@ builds:
       - amd64
   - id: casaos-local-storage-migration-tool-arm64
     binary: build/sysroot/usr/bin/casaos-local-storage-migration-tool
-    hooks:
-      post:
-        - upx --best --lzma -v --no-progress "{{ .Path }}"
+    # hooks:
+    #   post:
+    #     - upx --best --lzma -v --no-progress "{{ .Path }}"
     main: ./cmd/migration-tool
     env:
       - CC=aarch64-linux-gnu-gcc
