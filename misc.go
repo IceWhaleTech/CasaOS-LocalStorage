@@ -74,13 +74,11 @@ func sendDiskBySocket() {
 				status.Used += u
 			}
 		}
-
 	}
 
 	status.Health = healthy
 	message := make(map[string]interface{})
 	message["sys_disk"] = status
-
 	if err := service.MyService.NotifySystem().SendSystemStatusNotify(message); err != nil {
 		logger.Error("failed to send notify", zap.Any("message", message), zap.Error(err))
 	}

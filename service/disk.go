@@ -805,8 +805,8 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		strings.Contains(d.SubSystems, "virtio") ||
 		strings.Contains(d.SubSystems, "block:scsi:vmbus:acpi") || // Microsoft Hyper-V
 		strings.Contains(d.SubSystems, "block:mmc:mmc_host:pci") ||
-		strings.Contains(d.SubSystems, "block:scsi:pci") ||
-		(d.Tran == "ata" && d.Type == "disk") || d.Tran == "usb"
+		strings.Contains(d.SubSystems, "block:mmc:mmc_host:platform") ||
+		strings.Contains(d.SubSystems, "block:scsi:pci") || d.Tran == "usb"
 }
 func IsFormatSupported(d model.LSBLKModel) bool {
 	if d.FsType == "vfat" || d.FsType == "ext4" || d.FsType == "ext3" || d.FsType == "ext2" || d.FsType == "exfat" || d.FsType == "ntfs-3g" || d.FsType == "iso9660" {
