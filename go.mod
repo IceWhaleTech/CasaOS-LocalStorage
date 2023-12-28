@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	bazil.org/fuse v0.0.0-20230120002735-62a210ff1fd5
-	github.com/IceWhaleTech/CasaOS-Common v0.4.8-alpha2
+	github.com/IceWhaleTech/CasaOS-Common v0.4.8-alpha3
 	github.com/Xhofe/go-cache v0.0.0-20220723083548-714439c8af9a
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/deckarep/golang-set/v2 v2.3.0
@@ -123,7 +123,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20230110061619-bbe2e5e100de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mholt/archiver/v3 v3.5.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -155,7 +155,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spacemonkeygo/monkit/v3 v3.0.19 // indirect
-	github.com/spf13/cobra v1.7.0 // indirect
+	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/t3rm1n4l/go-mega v0.0.0-20230228171823-a01a2cda13ca // indirect
@@ -187,7 +187,7 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.14.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
