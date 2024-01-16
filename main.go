@@ -54,6 +54,7 @@ func init() {
 	dbFlag := flag.String("db", "", "db path")
 
 	versionFlag := flag.Bool("v", false, "version")
+	initFlag := flag.Bool("init", false, "init local-storage config")
 
 	flag.Parse()
 
@@ -77,8 +78,10 @@ func init() {
 
 	service.MyService = service.NewService(sqliteDB)
 	service.Cache = cache.Init()
-
-	go service.MyService.Disk().CheckSerialDiskMount()
+	if initFlag != nil && *initFlag {
+		service.MyService.Disk().CheckSerialDiskMount()
+		os.Exit(0)
+	}
 
 	// if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
 	// 	if !merge.IsMergerFSInstalled() {

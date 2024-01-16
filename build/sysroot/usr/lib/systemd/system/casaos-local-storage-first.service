@@ -1,0 +1,11 @@
+[Unit]
+Before=docker.service
+Description=Hello World
+
+[Service]
+ExecStart=/usr/bin/casaos-local-storage -init
+Type=oneshot
+
+
+[Install]
+WantedBy=multi-user.target
