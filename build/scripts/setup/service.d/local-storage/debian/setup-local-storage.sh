@@ -3,6 +3,7 @@
 set -e
 
 readonly APP_NAME="casaos-local-storage"
+readonly APP_NAME_FIRST="casaos-local-storage-first"
 readonly APP_NAME_SHORT="local-storage"
 
 # copy config files
@@ -20,3 +21,4 @@ systemctl daemon-reload
 # enable service (without starting)
 echo "Enabling service..."
 systemctl enable --force --no-ask-password "${APP_NAME}.service"
+systemctl enable --force --no-ask-password "${APP_NAME_FIRST}.service"
