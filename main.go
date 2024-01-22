@@ -24,6 +24,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/cache"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/sqlite"
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/merge"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/route"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
 	"github.com/coreos/go-systemd/daemon"
@@ -81,29 +82,30 @@ func init() {
 	if initFlag != nil && *initFlag {
 		service.MyService.Disk().CheckSerialDiskMount()
 		os.Exit(0)
+		return
+	}
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		if !merge.IsMergerFSInstalled() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
 	}
 
-	// if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-	// 	if !merge.IsMergerFSInstalled() {
-	// 		config.ServerInfo.EnableMergerFS = "false"
-	// 		logger.Info("mergerfs is disabled")
-	// 	}
-	// }
-	service.MyService.Disk().EnsureDefaultMergePoint()
-	// if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-	// 	if !service.MyService.Disk().EnsureDefaultMergePoint() {
-	// 		config.ServerInfo.EnableMergerFS = "false"
-	// 		logger.Info("mergerfs is disabled")
-	// 	}
-	// }
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		if !service.MyService.Disk().EnsureDefaultMergePoint() {
+			config.ServerInfo.EnableMergerFS = "false"
+			logger.Info("mergerfs is disabled")
+		}
+	}
 
-	// if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
-	// go service.MyService.LocalStorage().CheckMergeMount()
-	// }
+	if strings.ToLower(config.ServerInfo.EnableMergerFS) == "true" {
+		service.MyService.LocalStorage().CheckMergeMount()
+	}
 
 	checkToken2_11()
+	ensureDefaultDirectories()
+	//service.MyService.Disk().EnsureDefaultMergePoint()
 
-	go ensureDefaultDirectories()
 	// service.MountLists = make(map[string]*mountlib.MountPoint)
 	// configfile.Install()
 	// service.MyService.Storage().CheckAndMountAll()

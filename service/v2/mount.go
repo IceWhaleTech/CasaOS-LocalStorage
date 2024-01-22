@@ -77,7 +77,7 @@ func (s *LocalStorageService) Mount(m codegen.Mount) (*codegen.Mount, error) {
 	}
 
 	// check if mountpoint is empty
-	logger.Info("checking if mount point exist", zap.String("mount point", m.MountPoint))
+	//logger.Info("checking if mount point exist", zap.String("mount point", m.MountPoint))
 	if empty, err := file.IsDirEmpty(m.MountPoint); err != nil {
 		logger.Error("error when trying to check if mount point is empty", zap.Error(err), zap.Any("mount", m))
 		return nil, err

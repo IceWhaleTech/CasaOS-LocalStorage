@@ -21,7 +21,6 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
@@ -31,11 +30,10 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
-
+	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/moby/sys/mountinfo"
 
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
-	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -103,34 +101,44 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 		MountPoint:     mountPoint,
 		SourceBasePath: &sourceBasePath,
 	}
-
-	mounts, err := MyService.LocalStorage().GetMounts(codegen.GetMountsParams{})
-	if err != nil {
-		logger.Error("failed to get mount list from system", zap.Error(err))
-		return false
-	}
-	isExist := false
-	for _, v := range mounts {
-		if v.MountPoint == mountPoint {
-			config.ServerInfo.EnableMergerFS = "true"
-			isExist = true
-			merge.SourceBasePath = v.Source
-			break
+	if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
+		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
+			logger.Info(err.Error(), zap.String("mount point", mountPoint))
+		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+			return false
+		} else {
+			panic(err)
 		}
 	}
 
-	if !isExist {
-		if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
-			if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
-				logger.Info(err.Error(), zap.String("mount point", mountPoint))
-			} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
-				logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
-				return false
-			} else {
-				panic(err)
-			}
-		}
-	}
+	// mounts, err := MyService.LocalStorage().GetMounts(codegen.GetMountsParams{})
+	// if err != nil {
+	// 	logger.Error("failed to get mount list from system", zap.Error(err))
+	// 	return false
+	// }
+	// isExist := false
+	// for _, v := range mounts {
+	// 	if v.MountPoint == mountPoint {
+	// 		config.ServerInfo.EnableMergerFS = "true"
+	// 		isExist = true
+	// 		merge.SourceBasePath = v.Source
+	// 		break
+	// 	}
+	// }
+
+	// if !isExist {
+	// 	if err := MyService.LocalStorage().CreateMerge(merge); err != nil {
+	// 		if errors.Is(err, v2.ErrMergeMountPointAlreadyExists) {
+	// 			logger.Info(err.Error(), zap.String("mount point", mountPoint))
+	// 		} else if errors.Is(err, v2.ErrMountPointIsNotEmpty) {
+	// 			logger.Error("Mount point "+mountPoint+" is not empty", zap.String("mount point", mountPoint))
+	// 			return false
+	// 		} else {
+	// 			panic(err)
+	// 		}
+	// 	}
+	// }
 
 	if err := MyService.LocalStorage().CreateMergeInDB(merge); err != nil {
 		panic(err)
