@@ -13,7 +13,7 @@ import (
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
@@ -26,11 +26,10 @@ const messagePathSysUSB = "sys_usb"
 // @Security ApiKeyAuth
 // @Success 200 {string} string "ok"
 // @Router /sys/usb/off [put]
-func PutSystemUSBAutoMount(c *gin.Context) {
+func PutSystemUSBAutoMount(ctx echo.Context) error {
 	js := make(map[string]string)
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: err.Error()})
 	}
 
 	status := js["state"]
@@ -52,7 +51,7 @@ func PutSystemUSBAutoMount(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(common_err.SUCCESS,
+	return ctx.JSON(common_err.SUCCESS,
 		model.Result{
 			Success: common_err.SUCCESS,
 			Message: common_err.GetMsg(common_err.SUCCESS),
@@ -66,7 +65,7 @@ func PutSystemUSBAutoMount(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Success 200 {string} string "ok"
 // @Router /sys/usb [get]
-func GetSystemUSBAutoMount(c *gin.Context) {
+func GetSystemUSBAutoMount(ctx echo.Context) error {
 	state := "True"
 	if strings.ToLower(config.ServerInfo.USBAutoMount) != "true" {
 		state = "False"
@@ -82,7 +81,7 @@ func GetSystemUSBAutoMount(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(common_err.SUCCESS,
+	return ctx.JSON(common_err.SUCCESS,
 		model.Result{
 			Success: common_err.SUCCESS,
 			Message: common_err.GetMsg(common_err.SUCCESS),
@@ -90,7 +89,7 @@ func GetSystemUSBAutoMount(c *gin.Context) {
 		})
 }
 
-func GetDisksUSBList(c *gin.Context) {
+func GetDisksUSBList(ctx echo.Context) error {
 	list := service.MyService.Disk().LSBLK(false)
 	data := []model1.USBDriveStatus{}
 	for _, v := range list {
@@ -123,25 +122,22 @@ func GetDisksUSBList(c *gin.Context) {
 			data = append(data, temp)
 		}
 	}
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
 }
 
-func DeleteDiskUSB(c *gin.Context) {
+func DeleteDiskUSB(ctx echo.Context) error {
 	js := make(map[string]string)
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
 	}
 	mountPoint := js["mount_point"]
 	if file.CheckNotExist(mountPoint) {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
-		return
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.DIR_NOT_EXISTS, Message: common_err.GetMsg(common_err.DIR_NOT_EXISTS)})
 	}
 
 	if err := service.MyService.Disk().UmountUSB(mountPoint); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 	}
 
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: mountPoint})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: mountPoint})
 }

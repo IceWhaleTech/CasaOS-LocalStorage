@@ -2,42 +2,59 @@ package route
 
 import (
 	"crypto/ecdsa"
-	"os"
+	"net/http"
+	"strconv"
 
 	"github.com/IceWhaleTech/CasaOS-Common/external"
-	"github.com/IceWhaleTech/CasaOS-Common/middleware"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/jwt"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/config"
 	v1 "github.com/IceWhaleTech/CasaOS-LocalStorage/route/v1"
-
-	"github.com/gin-contrib/gzip"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	echo_middleware "github.com/labstack/echo/v4/middleware"
 )
 
-func InitV1Router() *gin.Engine {
+func InitV1Router() http.Handler {
 	// check if environment variable is set
-	ginMode, success := os.LookupEnv(gin.EnvGinMode)
-	if !success {
-		ginMode = gin.ReleaseMode
-	}
-	gin.SetMode(ginMode)
+	e := echo.New()
+	e.Use((echo_middleware.CORSWithConfig(echo_middleware.CORSConfig{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{echo.POST, echo.GET, echo.OPTIONS, echo.PUT, echo.DELETE},
+		AllowHeaders:     []string{echo.HeaderAuthorization, echo.HeaderContentLength, echo.HeaderXCSRFToken, echo.HeaderContentType, echo.HeaderAccessControlAllowOrigin, echo.HeaderAccessControlAllowHeaders, echo.HeaderAccessControlAllowMethods, echo.HeaderConnection, echo.HeaderOrigin, echo.HeaderXRequestedWith},
+		ExposeHeaders:    []string{echo.HeaderContentLength, echo.HeaderAccessControlAllowOrigin, echo.HeaderAccessControlAllowHeaders},
+		MaxAge:           172800,
+		AllowCredentials: true,
+	})))
 
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.Use(middleware.Cors())
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
-	if ginMode != gin.ReleaseMode {
-		r.Use(middleware.WriteLog())
-	}
-	r.GET("/v1/recover/:type", v1.GetRecoverStorage)
-	v1Group := r.Group("/v1")
+	e.Use(echo_middleware.Gzip())
+	e.Use(echo_middleware.Recover())
+	e.Use(echo_middleware.Logger())
 
-	v1Group.Use(jwt.JWT(
-		func() (*ecdsa.PublicKey, error) {
-			return external.GetPublicKey(config.CommonInfo.RuntimePath)
+	// r.GET("/v1/recover/:type", v1.GetRecoverStorage)
+	v1Group := e.Group("/v1")
+
+	v1Group.Use(echo_middleware.JWTWithConfig(echo_middleware.JWTConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.RealIP() == "::1" || c.RealIP() == "127.0.0.1"
 		},
-	))
+		ParseTokenFunc: func(token string, c echo.Context) (interface{}, error) {
+			valid, claims, err := jwt.Validate(token, func() (*ecdsa.PublicKey, error) { return external.GetPublicKey(config.CommonInfo.RuntimePath) })
+			if err != nil || !valid {
+				return nil, echo.ErrUnauthorized
+			}
 
+			c.Request().Header.Set("user_id", strconv.Itoa(claims.ID))
+
+			return claims, nil
+		},
+		TokenLookupFuncs: []echo_middleware.ValuesExtractor{
+			func(c echo.Context) ([]string, error) {
+				if len(c.Request().Header.Get(echo.HeaderAuthorization)) > 0 {
+					return []string{c.Request().Header.Get(echo.HeaderAuthorization)}, nil
+				}
+				return []string{c.QueryParam("token")}, nil
+			},
+		},
+	}))
 	{
 		v1DisksGroup := v1Group.Group("/disks")
 		v1DisksGroup.Use()
@@ -79,5 +96,5 @@ func InitV1Router() *gin.Engine {
 		}
 	}
 
-	return r
+	return e
 }
