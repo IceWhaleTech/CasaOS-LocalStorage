@@ -13,7 +13,7 @@ require (
 	github.com/glebarez/sqlite v1.8.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/json-iterator/go v1.1.12
-	github.com/labstack/echo/v4 v4.12.0
+	github.com/labstack/echo/v4 v4.10.2
 	github.com/maruel/natural v1.1.0
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -179,15 +179,15 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
+	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 	google.golang.org/api v0.114.0 // indirect
