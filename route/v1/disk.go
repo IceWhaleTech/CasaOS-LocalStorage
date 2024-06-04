@@ -12,7 +12,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"github.com/shirou/gopsutil/v3/disk"
 	"go.uber.org/zap"
 )
@@ -36,14 +36,13 @@ type StorageMessage struct {
 // @Security ApiKeyAuth
 // @Success 200 {string} string "ok"
 // @Router /disk/list [get]
-func GetDiskList(c *gin.Context) {
+func GetDiskList(ctx echo.Context) error {
 	blkList := service.MyService.Disk().LSBLK(false)
 
 	dbList, err := service.MyService.Disk().GetSerialAllFromDB()
 	if err != nil {
 		logger.Error("error when getting all volumes from database", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 	}
 
 	part := make(map[string]int64, len(dbList))
@@ -153,7 +152,7 @@ func GetDiskList(c *gin.Context) {
 		"avail": avail,
 	}
 
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
 }
 
 // @Summary disk list
@@ -164,29 +163,26 @@ func GetDiskList(c *gin.Context) {
 // @Success 200 {string} string "ok"
 // @Router /disk/list [get]
 
-func DeleteDisksUmount(c *gin.Context) {
+func DeleteDisksUmount(ctx echo.Context) error {
 	js := make(map[string]string)
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
 	}
 
 	// requires password from user to confirm the action
 	// if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
-	// 	c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+	// 	return ctx.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
 	// 	return
 	// }
 
 	path := js["path"]
 
 	if len(path) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
-		return
+		return ctx.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 	}
 
 	if _, ok := diskMap[path]; ok {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
-		return
+		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 	}
 
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
@@ -197,8 +193,7 @@ func DeleteDisksUmount(c *gin.Context) {
 	}
 	for _, v := range diskInfo.Children {
 		if err := service.MyService.Disk().UmountPointAndRemoveDir(v); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
-			return
+			return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		}
 
 		// delete data
@@ -230,23 +225,22 @@ func DeleteDisksUmount(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: path})
 }
-func GetDiskSize(c *gin.Context) {
-	path := c.Query("path")
+
+func GetDiskSize(ctx echo.Context) error {
+	path := ctx.QueryParam("path")
 	if len(path) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
-		return
+		return ctx.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 	}
 	p, err := disk.Usage(path)
 	if err != nil {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 	}
 	data := map[string]interface{}{
 		"path": path,
 		"free": p.Free,
 		"used": p.Used,
 	}
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: data})
 }

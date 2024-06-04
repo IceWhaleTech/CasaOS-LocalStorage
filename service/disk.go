@@ -146,6 +146,7 @@ func (d *diskService) EnsureDefaultMergePoint() bool {
 	config.ServerInfo.EnableMergerFS = "true"
 	return true
 }
+
 func (d *diskService) RemoveLSBLKCache() {
 	key := "system_lsblk"
 	Cache.Delete(key)
@@ -173,18 +174,18 @@ func (d *diskService) SmartCTL(path string) model.SmartctlA {
 	buf := command.ExecSmartCTLByPath(path)
 	if buf == nil {
 		if err := Cache.Add(key, m, time.Minute*10); err != nil {
-			//logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+			// logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
 		}
 		return m
 	}
 
 	err := json2.Unmarshal(buf, &m)
 	if err != nil {
-		//logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
+		// logger.Error("failed to unmarshal json", zap.Error(err), zap.String("json", string(buf)))
 	}
 	if !reflect.DeepEqual(m, model.SmartctlA{}) {
 		if err := Cache.Add(key, m, time.Hour*24); err != nil {
-			//logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
+			// logger.Error("failed to add cache", zap.Error(err), zap.String("key", key))
 		}
 	}
 	return m
@@ -397,7 +398,6 @@ func (d *diskService) LSBLK(isUseCache bool) []model.LSBLKModel {
 }
 
 func (d *diskService) GetDiskInfo(path string) model.LSBLKModel {
-
 	str := command.ExecLSBLKByPath(path)
 	if str == nil {
 		logger.Error("Failed to exec shell - lsblk exec error")
@@ -757,7 +757,6 @@ func (d *diskService) InitCheck() {
 		return
 	}
 	file.WriteToPath(data, config.AppInfo.DBPath, fileName)
-
 }
 
 func (d *diskService) GetSystemDf() (model.DFDiskSpace, error) {
@@ -816,6 +815,7 @@ func IsDiskSupported(d model.LSBLKModel) bool {
 		strings.Contains(d.SubSystems, "block:mmc:mmc_host:platform") ||
 		strings.Contains(d.SubSystems, "block:scsi:pci") || d.Tran == "usb"
 }
+
 func IsFormatSupported(d model.LSBLKModel) bool {
 	if d.FsType == "vfat" || d.FsType == "ext4" || d.FsType == "ext3" || d.FsType == "ext2" || d.FsType == "exfat" || d.FsType == "ntfs-3g" || d.FsType == "iso9660" {
 		return true

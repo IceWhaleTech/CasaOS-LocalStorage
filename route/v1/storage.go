@@ -18,17 +18,17 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/model"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/common_err"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 
 	model1 "github.com/IceWhaleTech/CasaOS-LocalStorage/model"
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
 
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service"
-	"github.com/gin-gonic/gin"
 )
 
-func GetStorageList(c *gin.Context) {
-	system := c.Query("system")
+func GetStorageList(ctx echo.Context) error {
+	system := ctx.QueryParam("system")
 
 	blkList := service.MyService.Disk().LSBLK(false)
 	foundSystem := false
@@ -38,7 +38,7 @@ func GetStorageList(c *gin.Context) {
 	// db, err := service.MyService.Disk().GetSerialAllFromDB()
 	// if err != nil {
 	// 	logger.Error("error when getting all volumes from database", zap.Error(err))
-	// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+	// 	return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 	// 	return
 	// }
 	// mapdb := make(map[string]string)
@@ -117,7 +117,7 @@ func GetStorageList(c *gin.Context) {
 			} else {
 				stor.Label = blkChild.Label
 			}
-			//if _, ok := mapdb[stor.MountPoint]; ok || stor.Label == "System" {
+			// if _, ok := mapdb[stor.MountPoint]; ok || stor.Label == "System" {
 			storageArr = append(storageArr, stor)
 			//}
 
@@ -142,14 +142,13 @@ func GetStorageList(c *gin.Context) {
 		}
 	}
 
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: storages})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS), Data: storages})
 }
 
-func PostAddStorage(c *gin.Context) {
+func PostAddStorage(ctx echo.Context) error {
 	js := make(map[string]interface{})
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
 	}
 
 	path := js["path"].(string)
@@ -157,12 +156,10 @@ func PostAddStorage(c *gin.Context) {
 	format := js["format"].(bool)
 
 	if len(path) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
-		return
+		return ctx.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 	}
 	if _, ok := diskMap[path]; ok {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
-		return
+		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 	}
 
 	diskMap[path] = "busying"
@@ -174,21 +171,18 @@ func PostAddStorage(c *gin.Context) {
 
 		if err := service.MyService.Disk().UmountPointAndRemoveDir(currentDisk); err != nil {
 			logger.Error("error when trying to umount storage", zap.Error(err), zap.String("path", path))
-			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
-			return
+			return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 		}
 
 		logger.Info("deleting storage...", zap.String("path", path))
 		if err := service.MyService.Disk().DeletePartition(path); err != nil {
 			logger.Error("error when trying to delete partition", zap.Error(err), zap.String("path", path))
-			c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-			return
+			return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 		}
 
 		logger.Info("formatting storage...", zap.String("path", path))
 		if err := service.MyService.Disk().AddPartition(path); err != nil {
-			c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-			return
+			return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 		}
 	}
 	currentDisk = service.MyService.Disk().GetDiskInfo(path)
@@ -199,7 +193,7 @@ func PostAddStorage(c *gin.Context) {
 		// // mount disk
 		// if output, err := service.MyService.Disk().MountDisk(currentDisk.Path, mountPoint); err != nil {
 		// 	logger.Error("err", zap.Error(err), zap.String("output", mountPoint))
-		// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
+		// 	return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
 		// 	return
 		// }
 
@@ -218,7 +212,7 @@ func PostAddStorage(c *gin.Context) {
 		// }
 
 		// if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
-		// 	c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+		// 	return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 		// 	return
 		// }
 
@@ -238,7 +232,6 @@ func PostAddStorage(c *gin.Context) {
 		// 		logger.Error("error when sending notification", zap.Error(err), zap.String("message path", messagePathStorageStatus), zap.Any("message", message))
 		// 	}
 		// }(currentDisk)
-
 	}
 	message := ""
 	for _, blkChild := range currentDisk.Children {
@@ -249,7 +242,7 @@ func PostAddStorage(c *gin.Context) {
 			logger.Error("err", zap.Error(err), zap.String("mountPoint", mountPoint), zap.String("output", output))
 			message += blkChild.Path + "\n"
 			continue
-			// c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
+			// return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output, Data: err.Error()})
 			// return
 		}
 
@@ -272,8 +265,8 @@ func PostAddStorage(c *gin.Context) {
 			service.MyService.Disk().UmountPointAndRemoveDir(blkChild)
 			message += blkChild.Path + "\n"
 			continue
-			//c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-			//return
+			// return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
+			// return
 		}
 
 		// send notify to client
@@ -294,26 +287,24 @@ func PostAddStorage(c *gin.Context) {
 		}(blkChild)
 	}
 	if len(message) > 0 {
-		c.JSON(http.StatusOK, model.Result{Success: common_err.SERVICE_ERROR, Message: message})
-		return
+		return ctx.JSON(http.StatusOK, model.Result{Success: common_err.SERVICE_ERROR, Message: message})
 	}
-	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+	return ctx.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
 // @Param  pwd formData string true "user password"
 // @Param  volume formData string true "mount point"
 // @Success 200 {string} string "ok"
 // @Router /disk/format [post]
-func PutFormatStorage(c *gin.Context) {
+func PutFormatStorage(ctx echo.Context) error {
 	js := make(map[string]string)
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
 	}
 
 	// requires password from user to confirm the action
 	// if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
-	// 	c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+	// 	return ctx.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
 	// 	return
 	// }
 
@@ -321,13 +312,11 @@ func PutFormatStorage(c *gin.Context) {
 	mountPoint := js["volume"]
 
 	if len(path) == 0 {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
-		return
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 	}
 
 	if _, ok := diskMap[path]; ok {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 	}
 
 	diskMap[path] = "busying"
@@ -336,13 +325,12 @@ func PutFormatStorage(c *gin.Context) {
 	defer delete(diskMap, path)
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	if err := service.MyService.Disk().UmountPointAndRemoveDir(diskInfo); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 	}
 
 	if err := service.MyService.Disk().FormatDisk(path); err != nil {
 		delete(diskMap, path)
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
+		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.FORMAT_ERROR, Message: common_err.GetMsg(common_err.FORMAT_ERROR)})
 	}
 	currentDisk := service.MyService.Disk().GetDiskInfo(path)
 	for diskInfo.UUID == currentDisk.UUID {
@@ -354,8 +342,7 @@ func PutFormatStorage(c *gin.Context) {
 	}
 
 	if output, err := service.MyService.Disk().MountDisk(path, mountPoint); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: output})
 	}
 
 	m := model2.Volume{
@@ -365,23 +352,21 @@ func PutFormatStorage(c *gin.Context) {
 	}
 
 	if err := service.MyService.Disk().SaveMountPointToDB(m); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.SERVICE_ERROR, Message: err.Error()})
 	}
 
-	c.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+	return ctx.JSON(common_err.SUCCESS, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
 
-func DeleteStorage(c *gin.Context) {
+func DeleteStorage(ctx echo.Context) error {
 	js := make(map[string]string)
-	if err := c.ShouldBind(&js); err != nil {
-		c.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
-		return
+	if err := ctx.Bind(&js); err != nil {
+		return ctx.JSON(http.StatusBadRequest, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS), Data: err.Error()})
 	}
 
 	// requires password from user to confirm the action
 	// if claims, err := jwt.ParseToken(c.GetHeader("Authorization"), false); err != nil || encryption.GetMD5ByStr(js["password"]) != claims.Password {
-	// 	c.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
+	// 	return ctx.JSON(http.StatusUnauthorized, model.Result{Success: common_err.PWD_INVALID, Message: common_err.GetMsg(common_err.PWD_INVALID)})
 	// 	return
 	// }
 
@@ -389,18 +374,15 @@ func DeleteStorage(c *gin.Context) {
 	mountPoint := js["volume"]
 
 	if len(path) == 0 || len(mountPoint) == 0 {
-		c.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
-		return
+		return ctx.JSON(common_err.CLIENT_ERROR, model.Result{Success: common_err.INVALID_PARAMS, Message: common_err.GetMsg(common_err.INVALID_PARAMS)})
 	}
 
 	if _, ok := diskMap[path]; ok {
-		c.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
-		return
+		return ctx.JSON(common_err.SERVICE_ERROR, model.Result{Success: common_err.DISK_BUSYING, Message: common_err.GetMsg(common_err.DISK_BUSYING)})
 	}
 	diskInfo := service.MyService.Disk().GetDiskInfo(path)
 	if err := service.MyService.Disk().UmountPointAndRemoveDir(diskInfo); err != nil {
-		c.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
-		return
+		return ctx.JSON(http.StatusInternalServerError, model.Result{Success: common_err.REMOVE_MOUNT_POINT_ERROR, Message: err.Error()})
 	}
 
 	// delete data
@@ -428,5 +410,5 @@ func DeleteStorage(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
+	return ctx.JSON(http.StatusOK, model.Result{Success: common_err.SUCCESS, Message: common_err.GetMsg(common_err.SUCCESS)})
 }
