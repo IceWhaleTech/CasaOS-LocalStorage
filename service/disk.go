@@ -22,6 +22,7 @@ import (
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 
+	command2 "github.com/IceWhaleTech/CasaOS-Common/utils/command"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
@@ -153,7 +154,7 @@ func (d *diskService) RemoveLSBLKCache() {
 }
 
 func (d *diskService) UmountUSB(path string) error {
-	_, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
+	_, err := command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
 	if err != nil {
 		return err
 	}
@@ -439,7 +440,7 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		return "", err
 	}
 
-	if out, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint); err != nil {
+	if out, err := command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint); err != nil {
 		logger.Error("error when mounting", zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint), zap.String("output", string(out)))
 		return out, err
 	}
