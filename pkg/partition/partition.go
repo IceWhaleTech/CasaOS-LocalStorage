@@ -3,9 +3,10 @@ package partition
 import (
 	"bytes"
 	"errors"
-	"os/exec"
 	"strconv"
 	"time"
+
+	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 )
 
 type Partition struct {
@@ -16,7 +17,7 @@ type Partition struct {
 var ErrNoPartitionFound = errors.New("no partition found after partition creation")
 
 func GetDevicePath(uuid string) (string, error) {
-	out, err := executeCommand("blkid", "--uuid", uuid)
+	out, err := command.ExecuteCommand("blkid", "--uuid", uuid)
 	if err != nil {
 		return "", err
 	}
@@ -29,7 +30,7 @@ func GetPartitions(path string) ([]Partition, error) {
 	var partitions []Partition
 
 	// lsblk
-	out, err := executeCommand("lsblk", "--pairs", "--bytes", "--output-all", path)
+	out, err := command.ExecuteCommand("lsblk", "--pairs", "--bytes", "--output-all", path)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +41,7 @@ func GetPartitions(path string) ([]Partition, error) {
 	}
 
 	// partx
-	out, err = executeCommand("partx", "--pairs", "--bytes", "--output-all", path)
+	out, err = command.ExecuteCommand("partx", "--pairs", "--bytes", "--output-all", path)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func GetPartitions(path string) ([]Partition, error) {
 
 // inform the operating system about partition table changes
 func ProbePartition(device string) error {
-	if _, err := executeCommand("partprobe", "-s", device); err != nil {
+	if _, err := command.ExecuteCommand("partprobe", "-s", device); err != nil {
 		return err
 	}
 
@@ -68,7 +69,7 @@ func ProbePartition(device string) error {
 // rootDevice - root device, e.g. /dev/sda
 func AddPartition(rootDevice string) ([]Partition, error) {
 	// add partition
-	if _, err := executeCommand("parted", "-s", rootDevice, "mkpart", "primary", "0", "100%"); err != nil {
+	if _, err := command.ExecuteCommand("parted", "-s", rootDevice, "mkpart", "primary", "0", "100%"); err != nil {
 		return nil, err
 	}
 
@@ -102,7 +103,7 @@ func AddPartition(rootDevice string) ([]Partition, error) {
 
 func CreatePartitionTable(rootDevice string) error {
 	// create partition table
-	if _, err := executeCommand("parted", "-s", rootDevice, "mklabel", "gpt"); err != nil {
+	if _, err := command.ExecuteCommand("parted", "-s", rootDevice, "mklabel", "gpt"); err != nil {
 		return err
 	}
 	return nil
@@ -110,7 +111,7 @@ func CreatePartitionTable(rootDevice string) error {
 
 // partitionDevice - partition device, e.g. /dev/sda1
 func FormatPartition(partitionDevice string) error {
-	if _, err := executeCommand(
+	if _, err := command.ExecuteCommand(
 		"mkfs.ext4",
 		"-v",      // Verbose execution.
 		"-m", "1", // Specify  the  percentage of the file system blocks reserved for the super-user.
@@ -130,29 +131,11 @@ func DeletePartition(rootDevice string, number int) error {
 	n := strconv.Itoa(number)
 
 	// delete partition
-	if _, err := executeCommand("sfdisk", "--delete", rootDevice, n); err != nil {
+	if _, err := command.ExecuteCommand("sfdisk", "--delete", rootDevice, n); err != nil {
 		return err
 	}
 
 	return ProbePartition(rootDevice)
-}
-
-func executeCommand(name string, arg ...string) ([]byte, error) {
-	cmd := exec.Command(name, arg...)
-	println(cmd.String())
-
-	out, err := cmd.Output()
-	println(string(out))
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			message := string(exitError.Stderr)
-			println(message)
-			return nil, errors.New(message)
-		}
-		return nil, err
-	}
-
-	return out, nil
 }
 
 func parsePARTXOutput(out []byte) map[string]map[string]string {

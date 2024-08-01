@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	command2 "github.com/IceWhaleTech/CasaOS-Common/utils/command"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
-	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/httper"
 	_ "github.com/rclone/rclone/backend/all"
 	"github.com/rclone/rclone/cmd/mountlib"
@@ -37,11 +37,12 @@ type StorageService interface {
 	GetConfig() (httper.RemotesResult, error)
 }
 
-type storageStruct struct {
-}
+type storageStruct struct{}
 
-var MountLists map[string]*mountlib.MountPoint
-var mountMu sync.Mutex
+var (
+	MountLists map[string]*mountlib.MountPoint
+	mountMu    sync.Mutex
+)
 
 func (s *storageStruct) MountStorage(mountPoint, deviceName string) error {
 	file.IsNotExistMkDir(mountPoint)
@@ -71,8 +72,8 @@ func (s *storageStruct) MountStorage(mountPoint, deviceName string) error {
 		Umask:              18,
 		UID:                0,
 		GID:                0,
-		DirPerms:           os.FileMode(0777),
-		FilePerms:          os.FileMode(0666),
+		DirPerms:           os.FileMode(0o777),
+		FilePerms:          os.FileMode(0o666),
 		CacheMode:          3,
 		CacheMaxAge:        3600 * time.Second,
 		CachePollInterval:  60 * time.Second,
@@ -106,8 +107,8 @@ func (s *storageStruct) MountStorage(mountPoint, deviceName string) error {
 	MountLists[mountPoint] = mnt
 	return nil
 }
-func (s *storageStruct) UnmountStorage(mountPoint string) error {
 
+func (s *storageStruct) UnmountStorage(mountPoint string) error {
 	err := MountLists[mountPoint].Unmount()
 	if err != nil {
 		logger.Error("when umount then", zap.Error(err))
@@ -115,6 +116,7 @@ func (s *storageStruct) UnmountStorage(mountPoint string) error {
 	}
 	return nil
 }
+
 func (s *storageStruct) UnmountAllStorage() {
 	for _, v := range MountLists {
 		err := v.Unmount()
@@ -123,6 +125,7 @@ func (s *storageStruct) UnmountAllStorage() {
 		}
 	}
 }
+
 func (s *storageStruct) GetStorages() (httper.MountList, error) {
 	ls := httper.MountList{}
 	list := []httper.MountPoints{}
@@ -136,12 +139,13 @@ func (s *storageStruct) GetStorages() (httper.MountList, error) {
 	return ls, nil
 	// return httper.GetMountList()
 }
+
 func (s *storageStruct) CreateConfig(data rc.Params, name string, t string) error {
 	_, err := rconfig.CreateRemote(context.Background(), name, t, data, rconfig.UpdateRemoteOpt{State: "*oauth-islocal,teamdrive,,", NonInteractive: true})
 	return err
 }
-func (s *storageStruct) CheckAndMountByName(name string) error {
 
+func (s *storageStruct) CheckAndMountByName(name string) error {
 	mountPoint, found := rconfig.LoadedData().GetValue(name, "mount_point")
 	if !found && len(mountPoint) == 0 {
 		logger.Error("when CheckAndMountAll then mountpint is empty", zap.String("mountPoint", mountPoint), zap.String("fs", name))
@@ -155,7 +159,7 @@ func (s *storageStruct) CheckAndMountAll() error {
 
 	logger.Info("when CheckAndMountAll section", zap.Any("section", section))
 	for _, v := range section {
-		command.OnlyExec("umount /mnt/" + v)
+		command2.OnlyExec("umount /mnt/" + v)
 		mountPoint, found := rconfig.LoadedData().GetValue(v, "mount_point")
 
 		if !found && len(mountPoint) == 0 {
@@ -186,8 +190,9 @@ func (s *storageStruct) GetAttributeValueByName(name, key string) string {
 func (s *storageStruct) DeleteConfigByName(name string) {
 	rconfig.DeleteRemote(name)
 }
+
 func (s *storageStruct) GetConfig() (httper.RemotesResult, error) {
-	//TODO: check data
+	// TODO: check data
 	// section, err := httper.GetAllConfigName()
 	// if err != nil {
 	// 	return httper.RemotesResult{}, err
@@ -195,6 +200,7 @@ func (s *storageStruct) GetConfig() (httper.RemotesResult, error) {
 	// return section, nil
 	return httper.RemotesResult{}, nil
 }
+
 func NewStorageService() StorageService {
 	return &storageStruct{}
 }

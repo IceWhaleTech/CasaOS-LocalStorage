@@ -9,19 +9,17 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
-
+	command2 "github.com/IceWhaleTech/CasaOS-Common/utils/command"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/constants"
+	"github.com/IceWhaleTech/CasaOS-Common/utils/exec"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/file"
 	"github.com/IceWhaleTech/CasaOS-Common/utils/logger"
-
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/codegen/message_bus"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/common"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/model"
@@ -30,11 +28,11 @@ import (
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/mount"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/partition"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/pkg/utils/command"
-	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
-	"github.com/moby/sys/mountinfo"
-
 	model2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/model"
+	v2 "github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2"
 	"github.com/IceWhaleTech/CasaOS-LocalStorage/service/v2/fs"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/moby/sys/mountinfo"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -153,7 +151,7 @@ func (d *diskService) RemoveLSBLKCache() {
 }
 
 func (d *diskService) UmountUSB(path string) error {
-	_, err := command.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
+	_, err := command2.ExecResultStr("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;UDEVILUmount " + path)
 	if err != nil {
 		return err
 	}
@@ -439,7 +437,7 @@ func (d *diskService) MountDisk(path, mountPoint string) (string, error) {
 		return "", err
 	}
 
-	if out, err := command.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint); err != nil {
+	if out, err := command2.OnlyExec("source " + config.AppInfo.ShellPath + "/local-storage-helper.sh ;do_mount " + path + " " + mountPoint); err != nil {
 		logger.Error("error when mounting", zap.Error(err), zap.String("path", path), zap.String("mount point", mountPoint), zap.String("output", string(out)))
 		return out, err
 	}
