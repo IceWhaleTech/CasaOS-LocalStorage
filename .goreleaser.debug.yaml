@@ -57,6 +57,22 @@ builds:
       - arm
     goarm:
       - "7"
+  - id: casaos-local-storage-riscv64
+    binary: build/sysroot/usr/bin/casaos-local-storage
+    env:
+      - CC=riscv64-linux-gnu-gcc
+    gcflags:
+      - all=-N -l
+    ldflags:
+      - -extldflags "-static"
+    tags:
+      - musl
+      - netgo
+      - osusergo
+    goos:
+      - linux
+    goarch:
+      - riscv64
   - id: casaos-local-storage-migration-tool-amd64
     binary: build/sysroot/usr/bin/casaos-local-storage-migration-tool
     main: ./cmd/migration-tool
@@ -110,6 +126,23 @@ builds:
       - arm
     goarm:
       - "7"
+  - id: casaos-local-storage-migration-tool-riscv64
+    binary: build/sysroot/usr/bin/casaos-local-storage-migration-tool
+    main: ./cmd/migration-tool
+    env:
+      - CC=riscv64-linux-gnu-gcc
+    gcflags:
+      - all=-N -l
+    ldflags:
+      - -extldflags "-static"
+    tags:
+      - musl
+      - netgo
+      - osusergo
+    goos:
+      - linux
+    goarch:
+      - riscv64
 archives:
   - name_template: >-
       {{ .Os }}-{{- if eq .Arch "arm" }}arm-7{{- else }}{{ .Arch }}{{- end }}-{{ .ProjectName }}-v{{ .Version }}
@@ -118,6 +151,7 @@ archives:
       - casaos-local-storage-amd64
       - casaos-local-storage-arm64
       - casaos-local-storage-arm-7
+      - casaos-local-storage-riscv64
     files:
       - build/**/*
   - name_template: >-
@@ -127,6 +161,7 @@ archives:
       - casaos-local-storage-migration-tool-amd64
       - casaos-local-storage-migration-tool-arm64
       - casaos-local-storage-migration-tool-arm-7
+      - casaos-local-storage-migration-tool-riscv64
     files:
       - build/sysroot/etc/**/*
 checksum:
